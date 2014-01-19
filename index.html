@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>   
+    <meta name='description' content='English Corner by WebRTC' />
+    <meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1'>
+
+    <base target='_blank'>
+
+    <title>WebRTC client</title>
+
+    <!-- <link rel='stylesheet' href='css/main.css' /> -->
+
+  </head>
+
+  <body>
+
+    <div id='container'>
+
+      <div id='videos'>
+	<audio id='localVideo' controls autoplay muted></audio>
+	<audio id='remoteVideo' autoplay></audio>
+      </div>
+
+    </div>
+
+    <script src='/socket.io/socket.io.js'></script>
+    <script src='js/main.js'></script>
+
+  </body>
+</html>
