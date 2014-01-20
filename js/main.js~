@@ -20,7 +20,7 @@ var sdpConstraints = {'mandatory': {
 /////////////////////////////////////////////
 // room operations
 
-var room = location.search.substring(1);
+var room = location.pathname.substring(1);
 if (room === '') {
   //  room = prompt('Enter room name:');
   room = 'foo';
@@ -147,7 +147,8 @@ function createPeerConnection() {
   try {
     pc = new webkitRTCPeerConnection(null);
     pc.onicecandidate = handleIceCandidate;
-    pc.onaddstream = handleRemoteStreamAdded;    pc.onremovestream = handleRemoteStreamRemoved;
+    pc.onaddstream = handleRemoteStreamAdded;
+    pc.onremovestream = handleRemoteStreamRemoved;
     console.log('Created RTCPeerConnnection');
   } catch (e) {
     console.log('Failed to create PeerConnection, exception: ' + e.message);

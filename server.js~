@@ -21,7 +21,7 @@ io.sockets.on('connection', function (client){
 
 	//room broadcast, arg: a list of room member
 	function roombc(room) {
-	    var array = [">>> Room Broadcast(From "+client.id.substring(0,3)+"): "];
+	    var array = [">>> Room Broadcast: "];
 	    for(var i = 1; i < arguments.length; i++)
 		array.push(arguments[i]);
 	    for(var i = 1; i < room.length; i++)
@@ -31,17 +31,10 @@ io.sockets.on('connection', function (client){
 	client.on('message', function (message) {
 		log('Got message: ', message);
 		// For a real app, should be room only (not broadcast)
-		if (message === 'bye') {
-		    var index = roomtable[client.room].indexOf(client);
-		    roomtable[client.room].splice(index,1);
-		}
-		for (var i = 1; i < roomtable[client.room].length; i++) {
-		    roomtable[client.room][i].emit('message', message);
-		}
+		client.broadcast.emit('message', message);
 	    });
 
 	client.on('create or join', function (room) {
-		log("Your ID is " + client.id.substring(0,3));
 		var numClients;
 		if (!roomtable[room]) {
 		    numClients = 0;
@@ -53,7 +46,6 @@ io.sockets.on('connection', function (client){
 		    numClients = roomtable[room].length - 1;
 		    roomtable[room].push(client);
 		}
-		client['room'] = room;
 		//var numClients = io.sockets.clients(room).length;
 		
 		log('Room ' + room + ' has ' + numClients + ' client(s)');
