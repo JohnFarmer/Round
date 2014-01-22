@@ -1,2 +1,4 @@
-#Dir
+#Files
+.DS_Store
+#Dirs
 experimental/

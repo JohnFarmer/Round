@@ -1,10 +1,11 @@
-var peerConns = [];
+var peerConns = {};
 var peerIndex;
 var peerId = null;
 var idTable;
 var idHash;
 var localStream;
 var standingBy = false;
+var isChannelReady;
 
 var localMediaTag = 'localAudio';
 var remoteMediaDivTag = 'remoteAudios';
@@ -14,9 +15,9 @@ var remoteMediaDiv = document.getElementById(remoteMediaDivTag);
 var constraints = {video: false, audio: true};
 var pc_config = {'iceServers': [{'url': 'stun:stun.l.google.com:19302'}]};
 var pc_constraints = {'optional': [{'DtlsSrtpKeyAgreement': true}]}
-    var sdpConstraints = {'mandatory': {
-	    'OfferToReceiveAudio':true,
-	    'OfferToReceiveVideo':true }};
+var sdpConstraints = {'mandatory': {
+	'OfferToReceiveAudio':true,
+	'OfferToReceiveVideo':true }};
 
 var room = location.search.substring(1);
 if (room === '') {
@@ -38,16 +39,15 @@ if (room !== '') {
 
 socket.on('created', function (room){
 	console.log('Created room ' + room);
-	isInitiator = true;
     });
 
 socket.on('full', function (room){
 	console.log('Room ' + room + ' is full');
+	alert('Room ' + room + ' is full');
     });
 
-socket.on('join', function (room){
-	console.log('Another peer made a request to join room ' + room);
-	console.log('This peer is the initiator of room ' + room + '!');
+socket.on('join', function (from, room){
+	console.log('Another peer',from,'made a request to join room ' + room);
 	isChannelReady = true;
     });
 
@@ -71,7 +71,7 @@ function sendMessage(message){
 }
 
 function sendMessageTo(to, message) {
-    console.log('Client sending message to ' + idHash[to] + '(' + to.subString(0,4) + '): ', message);
+    console.log('Client sending message to ' + idHash[to] + '(' + to + '): ', message);
     socket.emit('messageTo', to, message);
 }
 
@@ -83,57 +83,56 @@ socket.on('index', function (index, idtable) {
 	}
 	idTable = idtable;
 	idHash = {};
-	for (var i = 1; i <= idtable[1]; i++) idHash[idtable[i]] = i;
+	for (var i = 1; i <= idtable[0]; i++) idHash[idtable[i]] = i;
 	console.log('>>> Update peer index:', peerIndex);
 	console.log('    id table: ', idtable.toString());
     });
 
-// deal with public message: bye
-socket.on('message', function (from, message){
-	console.log('Client received broadcast message from:', message);
+socket.on('message', function(from, message) {
+	if(from === peerId) return;
+	console.log('Client received message from (' + from + '):', message);
 	if (message === 'got user media') {
-	    maybeStart();
-	} else if (message.type === 'offer') {
-	    if (!isInitiator && !isStarted) {
-		maybeStart();
-	    }
-	    pc.setRemoteDescription(new RTCSessionDescription(message));
-	    doAnswer();
-	} else if (message.type === 'answer' && isStarted) {
-	    pc.setRemoteDescription(new RTCSessionDescription(message));
-	} else if (message.type === 'candidate' && isStarted) {
-	    var candidate = new RTCIceCandidate({
-		    sdpMLineIndex: message.label,
-		    candidate: message.candidate
-		});
-	    pc.addIceCandidate(candidate);
-	} else if (message === 'bye' && isStarted) {
-	    handleRemoteHangup();
+	    if (!peerConns[from]) 	
+		peerConns[from] = new PeerConnection(from);
+	    peerConns[from].maybeStart();
+	} else if (message === 'bye') {
+		peerConns[from].handleRemoteHangup();
+		delete peerConns[from];
 	}
     });
 
-socket.on('messageFrom', function(from, message) {
-	console.log('Client received message from (' + from + '):', message);
-	if (message === 'got user media') {
-	    maybeStart();
-	} else if (message.type === 'offer') {
-	    if (!isInitiator && !isStarted) {
-		maybeStart();
+var handleMessageFrom = function(from, message) {
+    console.log('Client received message from (' + from + '):', message);
+    try {
+	if (pc = peerConns[from]) { 
+	    if (message.type === 'answer') {
+		pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
+	    } else if (message.type === 'candidate') {
+		var candidate = new RTCIceCandidate({
+			sdpMLineIndex: message.label,
+			candidate: message.candidate
+		    });
+		console.log(pc.peerConn);
+		console.log(pc);
+		pc.peerConn.addIceCandidate(candidate);
 	    }
-	    pc.setRemoteDescription(new RTCSessionDescription(message));
-	    doAnswer();
-	} else if (message.type === 'answer' && isStarted) {
-	    pc.setRemoteDescription(new RTCSessionDescription(message));
-	} else if (message.type === 'candidate' && isStarted) {
-	    var candidate = new RTCIceCandidate({
-		    sdpMLineIndex: message.label,
-		    candidate: message.candidate
-		});
-	    pc.addIceCandidate(candidate);
-	} else if (message === 'bye' && isStarted) {
-	    handleRemoteHangup();
+	} 
+	if (message.type === 'offer') {
+	    if (!peerConns[from])
+		peerConns[from] = new PeerConnection(from);
+	    var pc = peerConns[from];
+	    pc.maybeStart();
+	    pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
+	    pc.doAnswer();
 	}
-    });
+    } catch (e) {
+	console.log('Error from messageFrom event:', e.message);
+	setTimeout(handleMessageFrom(from, message), 500);
+    }
+	
+}
+    
+socket.on('messageFrom', handleMessageFrom);
 
 
 ///////////////////////////
@@ -141,11 +140,13 @@ socket.on('messageFrom', function(from, message) {
 
 function handleUserMedia(stream) {
     console.log('Adding local stream.');
-    localAudio.src = window.URL.createObjectURL(stream);
+    localMedia.src = window.URL.createObjectURL(stream);
     localStream = stream;
     sendMessage('got user media');
-    if (isInitiator) {
-	maybeStart();
+    for (var i = 1; i < peerIndex; i++) {
+	if(!peerConns[idTable[i]])
+ 	    peerConns[idTable[i]] = new PeerConnection(idTable[i]);
+	peerConns[idTable[i]].maybeStart();
     }
 }
 
@@ -162,15 +163,15 @@ console.log('Getting user media with constraints', constraints);
 
 /////////////////////////////////
 /// this is a peer agent deal with peer connection and media stream
-function peerConnection() {
+function PeerConnection(connectedPeer) {
+    console.log('Create PeerConnection Object');
+    var self = this;
     this.peerConn;
     this.connectedPeerID;
-    this.isChannelReady;
     this.isStarted;
     this.remoteStream;
     this.media;
-    this.connected = false;
-    this.connectedWith;
+    this.connectedWith = connectedPeer;
 
     ////////////////////////////
     // create html media tag
@@ -186,7 +187,7 @@ function peerConnection() {
 	this.media.autoplay = true;
 	this.media.controls = true; // placeholder
 
-	remoteDiv.appendChild(this.media);
+	remoteMediaDiv.appendChild(this.media);
     }
 
     //////////////////////////
@@ -195,33 +196,34 @@ function peerConnection() {
     this.createPeerConnection = function() {
 	try {
 	    this.peerConn = new webkitRTCPeerConnection(null);
-	    this.peerConn.onicecandidate = handleRemoteCandidate;
-	    this.peerConn.onaddstream = handleRemoteStreamAdded;
-	    this.peerConn.onremoveStream = handleRemoteStreamRemoved;
-	    console.log('Created peerConnection Object');
-	    this.peerConn.addStream(localStream);
+	    this.peerConn.onicecandidate = this.handleIceCandidate;
+	    this.peerConn.onaddstream = this.handleRemoteStreamAdded;
+	    this.peerConn.onremoveStream = this.handleRemoteStreamRemoved;
+	    console.log('Created RTCPeerConnection Object');
 	} catch (e) {
-	    console.log('Failed to create peerConnection Object');
+	    console.log('Failed to create PeerConnection Object');
 	    console.log('With exception: ' + e.message);
 	}
+	
     }
-
-    function handleRemoteStreamAdded(event) {
+    
+    this.handleRemoteStreamAdded = function(event) {
 	console.log('Remote stream added.');
-	this.media.src = window.URL.createObjectURL(event.stream);
-	this.remoteStream = event.stream;
+	self.createTag();
+	self.media.src = window.URL.createObjectURL(event.stream);
+	self.remoteStream = event.stream;
     }
 
-    function handleIceCandidate(event) {
+    this.handleIceCandidate = function(event) {
 	console.log('handleIceCandidate event: ', event);
 	if (event.candidate) {
 	    //////////////
 	    // TODO: sendMessageTO(event.from, myEvent);
-	    sendMessage({
+	    sendMessageTo(self.connectedWith, {
 		    type: 'candidate',
-			label: event.candidate.sdpMLineIndex,
-			id: event.candidate.sdpMid,
-			candidate: event.candidate.candidate});
+		    label: event.candidate.sdpMLineIndex,
+		    id: event.candidate.sdpMid,
+		    candidate: event.candidate.candidate});
 	    ////////////////
 	} else {
 	    console.log('End of candidates.');
@@ -229,53 +231,67 @@ function peerConnection() {
 	}
     }
 
-    function handleCreateOfferError(event){
+    this.handleCreateOfferError = function(event){
 	console.log('createOffer() error: ', e);
     }
  
-    function doCall() {
-	console.log('Sending offer to peer');
-	this.peerConn.createOffer(setLocalAndSendMessage, handleCreateOfferError);
+    this.doCall = function() {
+	console.log('Sending offer to peer:', this.connectedWith);
+	this.peerConn.createOffer(this.setLocalAndSendMessage, this.handleCreateOfferError);
     }
 
-    function doAnswer() {
-	console.log('Sending answer to peer.');
-	this.peerConn.createAnswer(setLocalAndSendMessage, null, sdpConstraints);
+    this.doAnswer = function() {
+	console.log('Sending answer to peer:', this.connectedWith);
+	this.peerConn.createAnswer(this.setLocalAndSendMessage, null, sdpConstraints);
     }
 
-    function setLocalAndSendMessage(sessionDescription) {
+    this.setLocalAndSendMessage = function(sessionDescription) {
 	// Set Opus as the preferred codec in SDP if Opus is present.
 	sessionDescription.sdp = preferOpus(sessionDescription.sdp);
-	this.peerConn.setLocalDescription(sessionDescription);
+	self.peerConn.setLocalDescription(sessionDescription);
 	console.log('setLocalAndSendMessage sending message' , sessionDescription);
 	////////////////////////
 	// TODO: sendMessageTo(to, sessionDescription);
-	sendMessage(sessionDescription);
+	sendMessageTo(self.connectedWith, sessionDescription);
 	///////////////////////
     }
 
-    function handleRemoteStreamRemoved(event) {
+    this.handleRemoteStreamRemoved = function(event) {
 	console.log('Remote stream removed. Event: ', event);
 	//////////////////////
 	// TODO: remove media tag, clear this object
 	/////////////////////
     }
 
-    //this function exec after recieving a 'bye' message
-    this.handleRemoteHangup = fucntion() {
-	//console.log('Session terminated.');
-	stop();
-	//isInitiator = false;
+    this.maybeStart = function() {
+	console.log('Calling maybeStart');
+	if (!this.isStarted && typeof localStream != 'undefined' && isChannelReady) {
+	    this.createPeerConnection();
+	    this.peerConn.addStream(localStream);
+	    this.isStarted = true;
+	    console.log(peerIndex, idHash[this.connectedWith]);
+	    if (peerIndex > idHash[this.connectedWith]) {
+		console.log('Prepare to call peer:', this.connectedWith);
+		this.doCall();
+	    }
+	}
     }
 
-    function stop() {
-	this.isStarted = false;
+    //this function exec after recieving a 'bye' message
+    this.handleRemoteHangup = function() {
+	console.log('Session with',self.connectedWith,'terminated.');
+	stop();
+	//remove media tag
+	remoteMediaDiv.removeChild(self.media);
+    }
+
+    this.stop = function() {
 	// isAudioMuted = false;
 	// isVideoMuted = false;
-	this.peerConn.close();
+	self.peerConn.close();
     }
 
-    function preferOpus(sdp) {
+   function preferOpus(sdp) {
 	var sdpLines = sdp.split('\r\n');
 	var mLineIndex;
 	// Search for m line.
@@ -354,10 +370,4 @@ window.onbeforeunload = function(e){
     // TODO: make hangup() usable for here
     sendMessage('bye');
     /////////////////////
-}
-
-function hangup() {
-    console.log('Hanging up.');
-    stop();
-    sendMessage('bye');
 }

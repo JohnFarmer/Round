@@ -17,16 +17,17 @@
 
     <div id='container'>
       <h4>Local Media</h4>
-      <div id='local'>
+      <div id='localAudio'>
 	<audio id='localAudio' autoplay muted controls></audio>
       </div>
       <h4>Remote Media</h4>
       <div id='remoteAudios'>
+	<audio id='remoteAudio' autoplay controls></audio>
       </div>
     </div>
 
     <script src='/socket.io/socket.io.js'></script>
-    <script src='js/peerconn.js'></script>
+    <script src='js/main.js'></script>
 
   </body>
 </html>
