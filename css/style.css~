@@ -1,0 +1,13 @@
+#placeholder {
+  width:	    150px;
+  height:           100px;
+  backgroud-color:  #F38630;
+  color:     	    #FFFFFF;
+  border-radius:    5px;
+  border: 	    3px solid;
+  text-align: 	    center;
+  font-weight:	    bold;
+  box-shadow:	    5px 5px 5px #888;
+  display: 	    inline-block;
+  margin: 20px 20px 20px 20px;
+}
