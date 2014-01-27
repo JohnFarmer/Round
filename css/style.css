@@ -1,19 +1,49 @@
-#container {
-  height:	    300px;
-
+#roomname {
+  text-align:	    center;
+  
 }
 
+body {
+  
+}
+
+#container {
+  margin-left:	    10%;
+  margin-right:	    10%;
+}
+
+#remoteMedia,#local {
+  width:	    100%;
+  display:	    flex;
+  justify-content:  center;
+  align-content:    center;
+  align-items:	    center;
+}
+
+.box {
+  flex:		    0 1 auto;
+  align-self:	    auto;
+  min-width:	    70px;
+  min-height:	    100px;
+  text-align:	    center;
+  margin:	    0 10px;
+}
+
+#boardDiv {
+  width:	    100%;
+  }
+
+#board {
+  margin: 0% 35%;
+}
 
 .placeholder {
-  width:	    150px;
   height:           100px;
-  backgroud-color:  #F38630;
+  background-color: #D3E690;
   color:     	    #000000;
   border-radius:    5px;
   border: 	    3px solid;
-  text-align: 	    center;
   font-weight:	    bold;
   box-shadow:	    5px 5px 5px #888;
-  display: 	    inline-block;
-  margin: 20px 20px 20px 20px;
+  margin: 5% 25%;
 }

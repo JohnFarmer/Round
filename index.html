@@ -7,22 +7,33 @@
 
     <base target='_blank'>
 
-    <title>WebRTC client</title>
+    <title>EngCor powered by WebRTC</title>
 
-    <!-- <link rel='stylesheet' href='css/main.css' /> -->
+    <link rel='stylesheet' href='css/style.css' />
 
   </head>
 
   <body>
-
+    <h3 id='roomname'>...</h3>
     <div id='container'>
-      <h4>Local Media</h4>
+      
+      <div id='remoteMedia'>
+      </div>
+      <div id='boardDiv'>
+	<br />    
+	<div id='board'></div>
+	<br />
+      </div>
       <div id='local'>
-	<audio id='localAudio' autoplay muted controls></audio>
+	<div class='box'>
+	  <div id='localPlaceHolder' class='placeholder'>Me</div>
+	  <audio id='localMedia' autoplay muted controls></audio>
+	  <br/>
+	  <input id='inputbox' type='text' placeholder='type & send'>
+	  <button id='sendbtn'>send</button>
+	</div>
       </div>
-      <h4>Remote Media</h4>
-      <div id='remoteAudios'>
-      </div>
+
     </div>
 
     <script src='/socket.io/socket.io.js'></script>

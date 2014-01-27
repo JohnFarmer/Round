@@ -7,25 +7,39 @@
 
     <base target='_blank'>
 
-    <title>WebRTC client</title>
+    <title>Chat room powered by WebRTC</title>
 
-    <!-- <link rel='stylesheet' href='css/main.css' /> -->
+    <link rel='stylesheet' href='css/style.css' />
 
   </head>
 
   <body>
-
+    <h3 id='roomname'>...</h3>
     <div id='container'>
 
-      <div id='audios'>
-	<audio id='localAudio' autoplay muted></audio>
-	<audio id='remoteAudio' autoplay></audio>
+      <hr />
+      <div id='remoteMedia'>
+      </div>
+      <div id='boardDiv'>
+      <hr />
+      <br />    
+      <div id='board'></div>
+      <br />
+      <hr />
+      </div>
+      <div id='local'>
+	<div id='localPlaceHolder' class='placeholder'>Me</div>
+	<br />
+	<audio id='localMedia' autoplay muted controls></audio>
+	<br />
+	<input id='inputbox' type='text' placeholder='type & send'>
+	<button id='sendbtn'>send</button>
       </div>
 
     </div>
 
     <script src='/socket.io/socket.io.js'></script>
-    <script src='js/main.js'></script>
+    <script src='js/peerconn.js'></script>
 
   </body>
 </html>

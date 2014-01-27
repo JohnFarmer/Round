@@ -1,16 +1,22 @@
 var peerConns = {};
 var peerIndex;
 var peerId = null;
-var idTable;
-var idHash;
+
+var idTable = [];
+var idHash = {};
+var nameHash = {};
+
 var localStream;
-var standingBy = false;
 var isChannelReady;
 
-var localMediaTag = 'localAudio';
-var remoteMediaDivTag = 'remoteAudios';
+var localMediaTag = 'localMedia';
+var remoteMediaDivTag = 'remoteMedia';
+var boardTag = 'board';
 var localMedia = document.getElementById(localMediaTag);
 var remoteMediaDiv = document.getElementById(remoteMediaDivTag);
+var board = document.getElementById(boardTag);
+var inputBox = document.getElementById('inputbox');
+var smsSendBtn = document.getElementById('sendbtn');
 
 var constraints = {video: false, audio: true};
 var pc_config = {'iceServers': [{'url': 'stun:stun.l.google.com:19302'}]};
@@ -23,9 +29,9 @@ var room = location.search.substring(1);
 if (room === '') {
     //  room = prompt('Enter room name:');
     room = 'foo';
-} else {
-    //
 }
+document.getElementById('roomname').innerText = room;
+var peerName = 'Lucky' + Math.floor(Math.random() * 1000);
 
 ////////////////////////////
 // setting connection to signaling server
@@ -34,32 +40,51 @@ var socket = io.connect();
 // room config
 if (room !== '') {
     console.log('Create or join room', room);
-    socket.emit('create or join', room);
+    socket.emit('create or join', room, peerName);
 }
 
-socket.on('created', function (room){
+socket.on('created', function(room) {
 	console.log('Created room ' + room);
     });
 
-socket.on('full', function (room){
+socket.on('full', function(room) {
 	console.log('Room ' + room + ' is full');
 	alert('Room ' + room + ' is full');
     });
 
-socket.on('join', function (from, room){
-	console.log('Another peer',from,'made a request to join room ' + room);
+socket.on('join', function(from, name) {
+	console.log('Another peer', from, name, 'made a request to join room ');
+	nameHash[from] = name;
 	isChannelReady = true;
     });
 
-socket.on('joined', function (room){
+socket.on('joined', function(room, namehash) {
 	console.log('This peer has joined room ' + room);
+	nameHash = namehash;
 	isChannelReady = true;
     });
 
-socket.on('log', function (array){
+socket.on('log', function(array) {
 	console.log.apply(console, array);
     });
 
+socket.on('broadcast', function(from, type, message) {
+	// TODO: remove the illegal chars by user
+	console.log('Receving board message:', message);
+	if (type === 'sms') {
+	    var historyMsg = board.innerText;
+	    board.innerText =
+		 (from === peerId? 'Me' : nameHash[from]) +
+		' : ' + message + '\n' + historyMsg; 
+	}
+    });
+
+smsSendBtn.onclick = function() {
+    var sms = inputBox.value;
+    console.log('Sending board messgae:', sms);
+    socket.emit('broadcast', 'sms', sms);
+    inputBox.value = '';
+}
 //////////////
 /// message sending & recieving
 function sendMessage(message){
@@ -77,13 +102,17 @@ function sendMessageTo(to, message) {
 
 socket.on('index', function (index, idtable) {
 	peerIndex = index;
-	if (!peerId) { 
+	if (!peerId) {
 	    peerId = idtable[index];
 	    console.log('This Peer\'s Id: ', idtable[index]);
 	}
 	idTable = idtable;
 	idHash = {};
-	for (var i = 1; i <= idtable[0]; i++) idHash[idtable[i]] = i;
+	for (var i = 1; i <= idtable[0]; i++) 
+	    idHash[idtable[i]] = i;
+	for (var i = 1; i <= idtable[0]; i++)
+	    if(peerConns[idtable[i]])
+	       peerConns[idtable[i]].updateBoxIndex();
 	console.log('>>> Update peer index:', peerIndex);
 	console.log('    id table: ', idtable.toString());
     });
@@ -127,7 +156,7 @@ var handleMessageFrom = function(from, message) {
 	}
     } catch (e) {
 	console.log('Error from messageFrom event:', e.message);
-	setTimeout(handleMessageFrom(from, message), 500);
+	setTimeout(handleMessageFrom(from, message), 2000);
     }
 	
 }
@@ -170,7 +199,9 @@ function PeerConnection(connectedPeer) {
     this.connectedPeerID;
     this.isStarted;
     this.remoteStream;
+    this.div;
     this.media;
+    this.placeHolder;
     this.connectedWith = connectedPeer;
 
     ////////////////////////////
@@ -182,17 +213,39 @@ function PeerConnection(connectedPeer) {
 	} else if (constraints.audio) {
 	    tagType = 'audio';
 	} else { /*  */	}
+			
+	this.div = document.createElement('div');
+	this.div.setAttribute('class','box');
+	remoteMediaDiv.appendChild(this.div);
+	this.updateBoxIndex();
 
+	this.placeHolder = document.createElement('div');
+	this.placeHolder.setAttribute('class', 'placeholder');
+	
 	this.media = document.createElement(tagType);
 	this.media.autoplay = true;
 	this.media.controls = true; // placeholder
+	this.placeHolder.innerText = 
+	idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
 
-	remoteMediaDiv.appendChild(this.media);
+	this.div.appendChild(this.placeHolder);
+	this.div.appendChild(this.media);
+    }
+
+    this.updateBoxIndex = function() {
+	this.div.setAttribute('id', idHash[this.connectedWith]);
+	this.div.setAttribute(
+	    'style', 
+	    'order: ' + 
+	    ((p = idHash[this.connectedWith] - peerIndex) > 0 ? p : p + idTable.length) +
+	    ';');
+	if(this.placeHolder)
+	    this.placeHolder.innerText = 
+	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
     }
 
     //////////////////////////
     // peer connection operations
-   
     this.createPeerConnection = function() {
 	try {
 	    this.peerConn = new webkitRTCPeerConnection(null);
@@ -217,14 +270,11 @@ function PeerConnection(connectedPeer) {
     this.handleIceCandidate = function(event) {
 	console.log('handleIceCandidate event: ', event);
 	if (event.candidate) {
-	    //////////////
-	    // TODO: sendMessageTO(event.from, myEvent);
 	    sendMessageTo(self.connectedWith, {
 		    type: 'candidate',
 		    label: event.candidate.sdpMLineIndex,
 		    id: event.candidate.sdpMid,
 		    candidate: event.candidate.candidate});
-	    ////////////////
 	} else {
 	    console.log('End of candidates.');
 	    this.connected = true;
@@ -250,17 +300,11 @@ function PeerConnection(connectedPeer) {
 	sessionDescription.sdp = preferOpus(sessionDescription.sdp);
 	self.peerConn.setLocalDescription(sessionDescription);
 	console.log('setLocalAndSendMessage sending message' , sessionDescription);
-	////////////////////////
-	// TODO: sendMessageTo(to, sessionDescription);
 	sendMessageTo(self.connectedWith, sessionDescription);
-	///////////////////////
     }
 
     this.handleRemoteStreamRemoved = function(event) {
 	console.log('Remote stream removed. Event: ', event);
-	//////////////////////
-	// TODO: remove media tag, clear this object
-	/////////////////////
     }
 
     this.maybeStart = function() {
@@ -280,15 +324,9 @@ function PeerConnection(connectedPeer) {
     //this function exec after recieving a 'bye' message
     this.handleRemoteHangup = function() {
 	console.log('Session with',self.connectedWith,'terminated.');
-	stop();
-	//remove media tag
-	remoteMediaDiv.removeChild(self.media);
-    }
-
-    this.stop = function() {
-	// isAudioMuted = false;
-	// isVideoMuted = false;
 	self.peerConn.close();
+	//remove media tag
+	remoteMediaDiv.removeChild(self.div);
     }
 
    function preferOpus(sdp) {
@@ -366,8 +404,5 @@ function PeerConnection(connectedPeer) {
 }
 
 window.onbeforeunload = function(e){
-    //////////////////////
-    // TODO: make hangup() usable for here
     sendMessage('bye');
-    /////////////////////
 }

@@ -9,24 +9,13 @@ var roomtable = {};
 var maxClients = 4;
 var io = require('socket.io').listen(app);
 io.sockets.on('connection', function (client){
-        
-	
+
 	function log(){
 	    var array = [">>> Message from server: "];
 	    for (var i = 0; i < arguments.length; i++) {
 		array.push(arguments[i]);
 	    }
 	    client.emit('log', array);
-	}
-
-	//room broadcast, arg: a list of room member
-	function roombc(room) {
-	    var array = [">>> Room Broadcast(From "+client.id.substring(0,3)+"): "];
-	    for(var i = 1; i < arguments.length; i++)
-		array.push(arguments[i]);
-	    for(var i = 1; i < room.length; i++)
-		room[i].emit('log', array);
-
 	}
 
 	//room index
@@ -40,6 +29,14 @@ io.sockets.on('connection', function (client){
 		roomtable[client.room][i].emit('index', i, idtable);
 	    }
 	}
+
+	//room broadcast, arg: a list of room member
+	client.on('broadcast', function(type, message) {
+		console.log('Transporting board message: ',  message);
+		for(var i = 1; i < roomtable[client.room].length; i++)
+		    roomtable[client.room][i].emit('broadcast', client.id, type, message);
+	    });
+
 
 	client.on('message', function (message) {
 		console.log('Send Message, from : ', client.id);
@@ -73,7 +70,7 @@ io.sockets.on('connection', function (client){
 		}
 	    });
 
-	client.on('create or join', function (room) {
+	client.on('create or join', function (room, name) {
 		var numClients;
 		if (!roomtable[room]) {
 		    numClients = 0;
@@ -86,24 +83,26 @@ io.sockets.on('connection', function (client){
 		    roomtable[room].push(client);
 		}
 		client['room'] = room;
+		client['name'] = name;
 		updateIndex();
 		
 		log('Room ' + room + ' has ' + numClients + ' client(s)');
 		log('Request to create or join room', room);
-		roombc(roomtable[room], client.id + ' joined room ' + room);
-
+		
 		if (numClients == 0){
 		    client.join(room);
 		    client.emit('created', room);
 		} else if (numClients <= roomtable[room][0] - 1) {
-		    for (var i = 1; i < roomtable[room].length; i++)
-			roomtable[room][i].emit('join', client.id, room);
+		    var namehash = {};
+		    for (var i = 1; i <= numClients; i++) {
+			roomtable[room][i].emit('join', client.id, client.name);
+		        namehash[roomtable[room][i].id] = roomtable[room][i].name;
+		    }
 		    client.join(room);
-		    client.emit('joined', room);
+		    client.emit('joined', room, namehash);
 		} else { // max: rootable[room][0] clients
 		    client.emit('full', room);
 		}
-		client.emit('emit(): client ' + client.id + ' joined room ' + room);
-		client.broadcast.emit('broadcast(): client ' + client.id + ' joined room ' + room);
+
 	    });
     });
