@@ -1,6 +1,7 @@
 var peerConns = {};
 var peerIndex;
 var peerId = null;
+var peerColorScheme = {};
 
 var idTable = [];
 var idHash = {};
@@ -22,8 +23,8 @@ var constraints = {video: false, audio: true};
 var pc_config = {'iceServers': [{'url': 'stun:stun.l.google.com:19302'}]};
 var pc_constraints = {'optional': [{'DtlsSrtpKeyAgreement': true}]}
 var sdpConstraints = {'mandatory': {
-	'OfferToReceiveAudio':true,
-	'OfferToReceiveVideo':true }};
+    'OfferToReceiveAudio':true,
+    'OfferToReceiveVideo':true }};
 
 var room = location.search.substring(1);
 if (room === '') {
@@ -32,6 +33,7 @@ if (room === '') {
 }
 document.getElementById('roomname').innerText = room;
 var peerName = 'Lucky' + Math.floor(Math.random() * 1000);
+peerColorScheme['init'] = '#ABCDEF';
 
 ////////////////////////////
 // setting connection to signaling server
@@ -40,44 +42,45 @@ var socket = io.connect();
 // room config
 if (room !== '') {
     console.log('Create or join room', room);
-    socket.emit('create or join', room, peerName);
+    socket.emit('create or join', room, peerName, peerColorScheme['init']);
 }
 
 socket.on('created', function(room) {
-	console.log('Created room ' + room);
-    });
+    console.log('Created room ' + room);
+});
 
 socket.on('full', function(room) {
-	console.log('Room ' + room + ' is full');
-	alert('Room ' + room + ' is full');
-    });
+    console.log('Room ' + room + ' is full');
+    alert('Room ' + room + ' is full');
+});
 
 socket.on('join', function(from, name) {
-	console.log('Another peer', from, name, 'made a request to join room ');
-	nameHash[from] = name;
-	isChannelReady = true;
-    });
+    console.log('Another peer', from, name, 'made a request to join room ');
+    nameHash[from] = name;
+    isChannelReady = true;
+});
 
-socket.on('joined', function(room, namehash) {
-	console.log('This peer has joined room ' + room);
-	nameHash = namehash;
-	isChannelReady = true;
-    });
+socket.on('joined', function(room, namehash, initColor) {
+    console.log('initColor', initColor);
+    console.log('This peer has joined room ' + room);
+    nameHash = namehash;
+    isChannelReady = true;
+});
 
 socket.on('log', function(array) {
-	console.log.apply(console, array);
-    });
+    console.log.apply(console, array);
+});
 
 socket.on('broadcast', function(from, type, message) {
-	// TODO: remove the illegal chars by user
-	console.log('Receving board message:', message);
-	if (type === 'sms') {
-	    var historyMsg = board.innerText;
-	    board.innerText =
-		 (from === peerId? 'Me' : nameHash[from]) +
-		' : ' + message + '\n' + historyMsg; 
-	}
-    });
+    // TODO: remove the illegal chars by user
+    console.log('Receving board message:', message);
+    if (type === 'sms') {
+	var historyMsg = board.innerText;
+	board.innerText =
+	    (from === peerId? 'Me' : nameHash[from]) +
+	    ' : ' + message + '\n' + historyMsg; 
+    }
+});
 
 smsSendBtn.onclick = function() {
     var sms = inputBox.value;
@@ -101,34 +104,34 @@ function sendMessageTo(to, message) {
 }
 
 socket.on('index', function (index, idtable) {
-	peerIndex = index;
-	if (!peerId) {
-	    peerId = idtable[index];
-	    console.log('This Peer\'s Id: ', idtable[index]);
-	}
-	idTable = idtable;
-	idHash = {};
-	for (var i = 1; i <= idtable[0]; i++) 
-	    idHash[idtable[i]] = i;
-	for (var i = 1; i <= idtable[0]; i++)
-	    if(peerConns[idtable[i]])
-	       peerConns[idtable[i]].updateBoxIndex();
-	console.log('>>> Update peer index:', peerIndex);
-	console.log('    id table: ', idtable.toString());
-    });
+    peerIndex = index;
+    if (!peerId) {
+	peerId = idtable[index];
+	console.log('This Peer\'s Id: ', idtable[index]);
+    }
+    idTable = idtable;
+    idHash = {};
+    for (var i = 1; i <= idtable[0]; i++) 
+	idHash[idtable[i]] = i;
+    for (var i = 1; i <= idtable[0]; i++)
+	if(peerConns[idtable[i]])
+	    peerConns[idtable[i]].updateBoxIndex();
+    console.log('>>> Update peer index:', peerIndex);
+    console.log('    id table: ', idtable.toString());
+});
 
 socket.on('message', function(from, message) {
-	if(from === peerId) return;
-	console.log('Client received message from (' + from + '):', message);
-	if (message === 'got user media') {
-	    if (!peerConns[from]) 	
-		peerConns[from] = new PeerConnection(from);
-	    peerConns[from].maybeStart();
-	} else if (message === 'bye') {
-		peerConns[from].handleRemoteHangup();
-		delete peerConns[from];
-	}
-    });
+    if(from === peerId) return;
+    console.log('Client received message from (' + from + '):', message);
+    if (message === 'got user media') {
+	if (!peerConns[from]) 	
+	    peerConns[from] = new PeerConnection(from);
+	peerConns[from].maybeStart();
+    } else if (message === 'bye') {
+	peerConns[from].handleRemoteHangup();
+	delete peerConns[from];
+    }
+});
 
 var handleMessageFrom = function(from, message) {
     console.log('Client received message from (' + from + '):', message);
@@ -138,9 +141,9 @@ var handleMessageFrom = function(from, message) {
 		pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
 	    } else if (message.type === 'candidate') {
 		var candidate = new RTCIceCandidate({
-			sdpMLineIndex: message.label,
-			candidate: message.candidate
-		    });
+		    sdpMLineIndex: message.label,
+		    candidate: message.candidate
+		});
 		console.log(pc.peerConn);
 		console.log(pc);
 		pc.peerConn.addIceCandidate(candidate);
@@ -158,9 +161,9 @@ var handleMessageFrom = function(from, message) {
 	console.log('Error from messageFrom event:', e.message);
 	setTimeout(handleMessageFrom(from, message), 2000);
     }
-	
-}
     
+}
+
 socket.on('messageFrom', handleMessageFrom);
 
 
@@ -213,7 +216,7 @@ function PeerConnection(connectedPeer) {
 	} else if (constraints.audio) {
 	    tagType = 'audio';
 	} else { /*  */	}
-			
+	
 	this.div = document.createElement('div');
 	this.div.setAttribute('class','box');
 	remoteMediaDiv.appendChild(this.div);
@@ -226,7 +229,7 @@ function PeerConnection(connectedPeer) {
 	this.media.autoplay = true;
 	this.media.controls = true; // placeholder
 	this.placeHolder.innerText = 
-	idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
+	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
 
 	this.div.appendChild(this.placeHolder);
 	this.div.appendChild(this.media);
@@ -237,8 +240,8 @@ function PeerConnection(connectedPeer) {
 	this.div.setAttribute(
 	    'style', 
 	    'order: ' + 
-	    ((p = idHash[this.connectedWith] - peerIndex) > 0 ? p : p + idTable.length) +
-	    ';');
+		((p = idHash[this.connectedWith] - peerIndex) > 0 ? p : p + idTable.length) +
+		';');
 	if(this.placeHolder)
 	    this.placeHolder.innerText = 
 	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
@@ -271,10 +274,10 @@ function PeerConnection(connectedPeer) {
 	console.log('handleIceCandidate event: ', event);
 	if (event.candidate) {
 	    sendMessageTo(self.connectedWith, {
-		    type: 'candidate',
-		    label: event.candidate.sdpMLineIndex,
-		    id: event.candidate.sdpMid,
-		    candidate: event.candidate.candidate});
+		type: 'candidate',
+		label: event.candidate.sdpMLineIndex,
+		id: event.candidate.sdpMid,
+		candidate: event.candidate.candidate});
 	} else {
 	    console.log('End of candidates.');
 	    this.connected = true;
@@ -284,7 +287,7 @@ function PeerConnection(connectedPeer) {
     this.handleCreateOfferError = function(event){
 	console.log('createOffer() error: ', e);
     }
- 
+    
     this.doCall = function() {
 	console.log('Sending offer to peer:', this.connectedWith);
 	this.peerConn.createOffer(this.setLocalAndSendMessage, this.handleCreateOfferError);
@@ -329,7 +332,7 @@ function PeerConnection(connectedPeer) {
 	remoteMediaDiv.removeChild(self.div);
     }
 
-   function preferOpus(sdp) {
+    function preferOpus(sdp) {
 	var sdpLines = sdp.split('\r\n');
 	var mLineIndex;
 	// Search for m line.
