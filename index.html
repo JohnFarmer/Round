@@ -21,13 +21,13 @@
       </div>
       <div id='boardDiv'>
 	<br />    
-	<div id='board'></div>
+	<div id='board'><strong>Message:</strong><br/></div>
 	<br />
       </div>
       <div id='local'>
 	<div class='box'>
 	  <div id='localPlaceHolder' class='placeholder'>Me</div>
-	  <audio id='localMedia' autoplay muted controls></audio>
+	  <audio id='localMedia' autoplay muted></audio>
 	  <br/>
 	  <input id='inputbox' type='text' placeholder='type & send'>
 	  <button id='sendbtn'>send</button>
@@ -37,6 +37,7 @@
     </div>
 
     <script src='/socket.io/socket.io.js'></script>
+    <script src='js/mk_color_scheme.js'></script>
     <script src='js/peerconn.js'></script>
 
   </body>

@@ -85,7 +85,7 @@ io.sockets.on('connection', function (client){
 	client['room'] = room;
 	client['name'] = name;
 	updateIndex();
-	
+
 	log('Room ' + room + ' has ' + numClients + ' client(s)');
 	log('Request to create or join room', room);
 	
@@ -104,6 +104,7 @@ io.sockets.on('connection', function (client){
 	} else { // max: rootable[room][0] clients
 	    client.emit('full', room);
 	}
+	
 
     });
 });

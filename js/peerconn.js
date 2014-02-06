@@ -3,7 +3,7 @@ var peerIndex;
 var peerId = null;
 var peerColorScheme = {};
 
-var idTable = [];
+var idTable = []; // content start from 1
 var idHash = {};
 var nameHash = {};
 
@@ -46,6 +46,9 @@ if (room !== '') {
 }
 
 socket.on('created', function(room) {
+    peerColorScheme['wheel'] = mkColorWheel(peerColorScheme['init']);
+    handlePageColor();
+    handleLocalColor();
     console.log('Created room ' + room);
 });
 
@@ -62,6 +65,10 @@ socket.on('join', function(from, name) {
 
 socket.on('joined', function(room, namehash, initColor) {
     console.log('initColor', initColor);
+    peerColorScheme['wheel'] = mkColorWheel(initColor);
+    handlePageColor();
+    handleLocalColor();
+    console.log('Self Color Wheel inited by peer 1', peerColorScheme['wheel']);
     console.log('This peer has joined room ' + room);
     nameHash = namehash;
     isChannelReady = true;
@@ -90,7 +97,7 @@ smsSendBtn.onclick = function() {
 }
 //////////////
 /// message sending & recieving
-function sendMessage(message){
+function sendMessage(message) {
     console.log('Client sending broadcast message: ', message);
     // if (typeof message === 'object') {
     //   message = JSON.stringify(message);
@@ -118,6 +125,10 @@ socket.on('index', function (index, idtable) {
 	    peerConns[idtable[i]].updateBoxIndex();
     console.log('>>> Update peer index:', peerIndex);
     console.log('    id table: ', idtable.toString());
+    for (var i = 1; i < idTable.length - 1; i++)
+	if(peerConns[idTable[i]] && peerConns[idTable[i]].placeHolder)
+	    peerConns[idTable[i]].handleColor();
+    handleLocalColor();
 });
 
 socket.on('message', function(from, message) {
@@ -216,7 +227,7 @@ function PeerConnection(connectedPeer) {
 	} else if (constraints.audio) {
 	    tagType = 'audio';
 	} else { /*  */	}
-	
+
 	this.div = document.createElement('div');
 	this.div.setAttribute('class','box');
 	remoteMediaDiv.appendChild(this.div);
@@ -224,15 +235,16 @@ function PeerConnection(connectedPeer) {
 
 	this.placeHolder = document.createElement('div');
 	this.placeHolder.setAttribute('class', 'placeholder');
-	
+
 	this.media = document.createElement(tagType);
 	this.media.autoplay = true;
-	this.media.controls = true; // placeholder
+	//this.media.controls = true; // placeholder
 	this.placeHolder.innerText = 
 	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
 
 	this.div.appendChild(this.placeHolder);
 	this.div.appendChild(this.media);
+	this.handleColor();
     }
 
     this.updateBoxIndex = function() {
@@ -245,6 +257,13 @@ function PeerConnection(connectedPeer) {
 	if(this.placeHolder)
 	    this.placeHolder.innerText = 
 	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
+    }
+
+    this.handleColor = function() {
+	if (!this.placeHolder.style.backgroundColor) {
+	    this.placeHolder.style.backgroundColor =
+		peerColorScheme['wheel'][idHash[this.connectedWith] * 2];
+	}
     }
 
     //////////////////////////

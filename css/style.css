@@ -23,7 +23,7 @@ body {
 .box {
   flex:		    0 1 auto;
   align-self:	    auto;
-  min-width:	    70px;
+  min-width:	    150px;
   min-height:	    100px;
   text-align:	    center;
   margin:	    0 10px;
@@ -34,16 +34,17 @@ body {
 }
 
 #board {
-  margin: 0% 35%;
+  margin: 1% 30%;
+  padding: 1% 5%;
 }
 
 .placeholder {
   height:           100px;
-  background-color: #D3E690;
+  background-color: #000000;
   color:     	    #000000;
-  border-radius:    5px;
-  border: 	    3px solid;
+  border-radius:    2px;
+  /*border: 	    2px solid;*/
   font-weight:	    bold;
-  box-shadow:	    5px 5px 5px #888;
-  margin:           5% 25%;
+  /*box-shadow:	    5px 5px 5px #888;*/
+  margin:           5% 10%;
 }

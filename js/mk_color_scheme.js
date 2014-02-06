@@ -76,4 +76,23 @@ var HSLtoRGB = function(hue, saturation, lightness) {
     return '#' + R + G + B;
 };
 
-console.log(mkColorWheel('#ABCDEF'));
+// color handler
+//////////////////////////
+// TODO: var ColorHandler = new Object();
+//////////////////////////
+var htmlBody = document.getElementsByTagName('body')[0];
+var board = document.getElementById('board');
+var localPlaceHolder = document.getElementById('localPlaceHolder');
+
+var handlePageColor = function() {
+    if (!htmlBody.style.backgroundColor)
+	htmlBody.style.backgroundColor = peerColorScheme['wheel'][0];
+    if (!board.style.backgroundColor)
+	board.style.backgroundColor = peerColorScheme['wheel'][10];
+}
+
+var handleLocalColor = function() {
+    if (peerColorScheme['wheel'])
+	localPlaceHolder.style.backgroundColor = 
+	    peerColorScheme['wheel'][peerIndex * 2];
+}
