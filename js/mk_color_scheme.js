@@ -39,6 +39,7 @@ var RGBtoHSL = function(RGB) {
     } else if (M == B) {
 	hue = (R - G) / chroma + 4;
     } else {
+	// defaultRGBWhell is in the config file(part)
 	return defaultRGBWheel;
     }
     result['hue'] = 60.0 * hue;
@@ -79,6 +80,8 @@ var HSLtoRGB = function(hue, saturation, lightness) {
 // color handler
 //////////////////////////
 // TODO: var ColorHandler = new Object();
+// include color wheel init color
+//         color config
 //////////////////////////
 var htmlBody = document.getElementsByTagName('body')[0];
 var board = document.getElementById('board');
@@ -89,10 +92,10 @@ var handlePageColor = function() {
 	htmlBody.style.backgroundColor = peerColorScheme['wheel'][0];
     if (!board.style.backgroundColor)
 	board.style.backgroundColor = peerColorScheme['wheel'][10];
-}
+};
 
 var handleLocalColor = function() {
     if (peerColorScheme['wheel'])
 	localPlaceHolder.style.backgroundColor = 
 	    peerColorScheme['wheel'][peerIndex * 2];
-}
+};

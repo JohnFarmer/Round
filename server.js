@@ -9,7 +9,6 @@ var roomtable = {};
 var maxClients = 4;
 var io = require('socket.io').listen(app);
 io.sockets.on('connection', function (client){
-
     function log(){
 	var array = [">>> Message from server: "];
 	for (var i = 0; i < arguments.length; i++) {
@@ -36,7 +35,6 @@ io.sockets.on('connection', function (client){
 	for(var i = 1; i < roomtable[client.room].length; i++)
 	    roomtable[client.room][i].emit('broadcast', client.id, type, message);
     });
-
 
     client.on('message', function (message) {
 	console.log('Send Message, from : ', client.id);
@@ -104,7 +102,5 @@ io.sockets.on('connection', function (client){
 	} else { // max: rootable[room][0] clients
 	    client.emit('full', room);
 	}
-	
-
     });
 });

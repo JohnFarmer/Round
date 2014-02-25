@@ -1,343 +1,439 @@
-'use strict';
-
-var isChannelReady;
-var isInitiator = false;
-var isStarted = false;
-var localStream;
-var pc;
-var remoteStream;
-var turnReady;
-
+// a local connect info module
+var peerConns = {};
 var peerIndex;
-var remoteMediaDiv = 'remoteAudios';
+var peerId = null;
+var peerColorScheme = {};
 
+var idTable = []; // content start from 1
+var idHash = {};
+var nameHash = {};
+
+var localStream;
+var isChannelReady;
+
+// a tag name config module
+var localMediaTag = 'localMedia';
+var remoteMediaDivTag = 'remoteMedia';
+var boardTag = 'board';
+var localMedia = document.getElementById(localMediaTag);
+var remoteMediaDiv = document.getElementById(remoteMediaDivTag);
+var board = document.getElementById(boardTag);
+var inputBox = document.getElementById('inputbox');
+var smsSendBtn = document.getElementById('sendbtn');
+
+// a constrain module
+var constraints = {video: false, audio: true};
 var pc_config = {'iceServers': [{'url': 'stun:stun.l.google.com:19302'}]};
-
 var pc_constraints = {'optional': [{'DtlsSrtpKeyAgreement': true}]};
-
-// Set up audio and video regardless of what devices are present.
 var sdpConstraints = {'mandatory': {
-  'OfferToReceiveAudio':true,
-  'OfferToReceiveVideo':true }};
-
-/////////////////////////////////////////////
-// room operations
+    'OfferToReceiveAudio':true,
+    'OfferToReceiveVideo':true }};
 
 var room = location.search.substring(1);
 if (room === '') {
-  //  room = prompt('Enter room name:');
-  room = 'foo';
-} else {
-  //
+    //room = prompt('Enter room name:');
+    room = 'foo';
 }
+document.getElementById('roomname').innerText = room;
+var peerName = 'Lucky' + Math.floor(Math.random() * 1000);
+peerColorScheme['init'] = '#ABCDEF';
 
+////////////////////////////
+// setting connection to signaling server
 var socket = io.connect();
-
+///////
+// room config
 if (room !== '') {
-  console.log('Create or join room', room);
-  socket.emit('create or join', room);
+    console.log('Create or join room', room);
+    socket.emit('create or join', room, peerName, peerColorScheme['init']);
 }
 
-socket.on('created', function (room){
-  console.log('Created room ' + room);
-  isInitiator = true;
+socket.on('created', function(room) {
+    peerColorScheme['wheel'] = mkColorWheel(peerColorScheme['init']);
+    handlePageColor();
+    handleLocalColor();
+    console.log('Created room ' + room);
 });
 
-socket.on('full', function (room){
-  console.log('Room ' + room + ' is full');
+socket.on('full', function(room) {
+    console.log('Room ' + room + ' is full');
+    alert('Room ' + room + ' is full');
 });
 
-socket.on('join', function (from, room){
-  console.log('Another peer made a request to join room ' + room);
-  console.log('This peer is the initiator of room ' + room + '!');
-  isChannelReady = true;
+socket.on('join', function(from, name) {
+    console.log('Another peer', from, name, 'made a request to join room ');
+    nameHash[from] = name;
+    isChannelReady = true;
 });
 
-socket.on('joined', function (room){
-  console.log('This peer has joined room ' + room);
-  isChannelReady = true;
+socket.on('joined', function(room, namehash, initColor) {
+    console.log('initColor', initColor);
+    peerColorScheme['wheel'] = mkColorWheel(initColor);
+    handlePageColor();
+    handleLocalColor();
+    console.log('Self Color Wheel inited by peer 1', peerColorScheme['wheel']);
+    console.log('This peer has joined room ' + room);
+    nameHash = namehash;
+    isChannelReady = true;
 });
 
-socket.on('log', function (array){
-  console.log.apply(console, array);
+socket.on('log', function(array) {
+    console.log.apply(console, array);
 });
 
-socket.on('index', function (index, idtable){
-	peerIndex = index;
-	console.log('>>> Update peer index:', peerIndex);
-	console.log('    ID Table:', idtable);
-});
-
-////////////////////////////////////////////////
-// connection operations
-
-function sendMessage(message){
-    message.from = peerIndex;
-	console.log('Client sending message: ', message);
-  // if (typeof message === 'object') {
-  //   message = JSON.stringify(message);
-  // }
-  socket.emit('message', message);
-}
-
-socket.on('message', function (from, message){
-  console.log('Client received message:', message);
-  if (message === 'got user media') {
-  	maybeStart();
-  } else if (message.type === 'offer') {
-    if (!isInitiator && !isStarted) {
-      maybeStart();
+socket.on('broadcast', function(from, type, message) {
+    console.log('Receving board message:', message);
+    if (type === 'sms') {
+	var historyMsg = board.innerText;
+	board.innerText =
+	    (from === peerId? 'Me' : nameHash[from]) +
+	    ' : ' + message + '\n' + historyMsg; 
     }
-    pc.setRemoteDescription(new RTCSessionDescription(message));
-    doAnswer();
-  } else if (message.type === 'answer' && isStarted) {
-    pc.setRemoteDescription(new RTCSessionDescription(message));
-  } else if (message.type === 'candidate' && isStarted) {
-    var candidate = new RTCIceCandidate({
-      sdpMLineIndex: message.label,
-      candidate: message.candidate
-    });
-    pc.addIceCandidate(candidate);
-  } else if (message === 'bye' && isStarted) {
-    handleRemoteHangup();
-  }
 });
 
-////////////////////////////////////////////////////
+smsSendBtn.onclick = function() {
+    var sms = inputBox.value;
+    console.log('Sending board messgae:', sms);
+    socket.emit('broadcast', 'sms', sms);
+    inputBox.value = '';
+};
+//////////////
+/// message sending & recieving
+function sendMessage(message) {
+    console.log('Client sending broadcast message: ', message);
+    // if (typeof message === 'object') {
+    //   message = JSON.stringify(message);
+    // }
+    socket.emit('message', message);
+}
 
-var localAudio = document.querySelector('#localAudio');
-var remoteAudio = document.querySelector('#remoteAudio');
+function sendMessageTo(to, message) {
+    console.log('Client sending message to ' + idHash[to] + '(' + to + '): ', message);
+    socket.emit('messageTo', to, message);
+}
+
+socket.on('index', function (index, idtable) {
+    peerIndex = index;
+    if (!peerId) {
+	peerId = idtable[index];
+	console.log('This Peer\'s Id: ', idtable[index]);
+    }
+    idTable = idtable;
+    idHash = {};
+    for (var i = 1; i <= idtable[0]; i++) 
+	idHash[idtable[i]] = i;
+    for (var i = 1; i <= idtable[0]; i++)
+	if(peerConns[idtable[i]])
+	    peerConns[idtable[i]].updateBoxIndex();
+    console.log('>>> Update peer index:', peerIndex);
+    console.log('    id table: ', idtable.toString());
+    for (var i = 1; i <= idTable[0]; i++) {
+	if (peerConns[idTable[i]] && peerConns[idTable[i]].placeHolder) {
+	    console.log('peer',i,'reporting');
+	    peerConns[idTable[i]].handleColor();
+	}
+    }
+    handleLocalColor();
+});
+
+socket.on('message', function(from, message) {
+    if(from === peerId) return;
+    console.log('Client received message from (' + from + '):', message);
+    if (message === 'got user media') {
+	if (!peerConns[from]) 	
+	    peerConns[from] = new PeerConnection(from);
+	peerConns[from].maybeStart();
+    } else if (message === 'bye') {
+	peerConns[from].handleRemoteHangup();
+	delete peerConns[from];
+    }
+});
+
+var handleMessageFrom = function(from, message) {
+    console.log('Client received message from (' + from + '):', message);
+    try {
+	if (pc = peerConns[from]) { 
+	    if (message.type === 'answer') {
+		pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
+	    } else if (message.type === 'candidate') {
+		var candidate = new RTCIceCandidate({
+		    sdpMLineIndex: message.label,
+		    candidate: message.candidate
+		});
+		console.log(pc.peerConn);
+		console.log(pc);
+		pc.peerConn.addIceCandidate(candidate);
+	    }
+	} 
+	if (message.type === 'offer') {
+	    if (!peerConns[from])
+		peerConns[from] = new PeerConnection(from);
+	    var pc = peerConns[from];
+	    pc.maybeStart();
+	    pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
+	    pc.doAnswer();
+	}
+    } catch (e) {
+	console.log('Error from messageFrom event:', e.message);
+	// setTimeout can not block the proccess, find another way
+	////////////////////
+	// setTimeout(handleMessageFrom(from, message), 2000);
+	////////////////////
+    }
+    
+};
+
+socket.on('messageFrom', handleMessageFrom);
+
+
+///////////////////////////
+/// setting local stream
 
 function handleUserMedia(stream) {
-  console.log('Adding local stream.');
-  localAudio.src = window.URL.createObjectURL(stream);
-  localStream = stream;
-  sendMessage('got user media');
-  if (isInitiator) {
-    maybeStart();
-  }
+    console.log('Adding local stream.');
+    localMedia.src = window.URL.createObjectURL(stream);
+    localStream = stream;
+    sendMessage('got user media');
+    for (var i = 1; i < peerIndex; i++) {
+	if(!peerConns[idTable[i]])
+ 	    peerConns[idTable[i]] = new PeerConnection(idTable[i]);
+	peerConns[idTable[i]].maybeStart();
+    }
 }
 
 function handleUserMediaError(error){
-  console.log('navigator.getUserMedia error: ', error);
+    console.log('navigator.getUserMedia error: ', error);
 }
 
-var constraints = {video: false,
-		   audio: true};
 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 navigator.getUserMedia(constraints, handleUserMedia, handleUserMediaError);
 
 console.log('Getting user media with constraints', constraints);
 
-/*
-if (location.hostname != "localhost") {
-  requestTurn('https://computeengineondemand.appspot.com/turn?username=41784574&key=4080218913');
-}
-*/
+// TODO: set TURN server
 
-function maybeStart() {
-  if (!isStarted && typeof localStream != 'undefined' && isChannelReady) {
-    createPeerConnection();
-    pc.addStream(localStream);
-    isStarted = true;
-    console.log('isInitiator', isInitiator);
-    if (isInitiator) {
-      doCall();
+/////////////////////////////////
+/// this is a peer agent deal with peer connection and media stream
+function PeerConnection(connectedPeer) {
+    console.log('Create PeerConnection Object');
+    var self = this;
+    this.peerConn;
+    this.connectedPeerID;
+    this.isStarted;
+    this.remoteStream;
+    this.div;
+    this.media;
+    this.placeHolder;
+    this.connectedWith = connectedPeer;
+
+    ////////////////////////////
+    // create html media tag
+    this.createTag = function () {
+	var tagType;
+	if (constraints.video) {
+	    tagType = 'video';
+	} else if (constraints.audio) {
+	    tagType = 'audio';
+	} else { /*  */	}
+
+	this.div = document.createElement('div');
+	this.div.setAttribute('class','box');
+	remoteMediaDiv.appendChild(this.div);
+	this.updateBoxIndex();
+
+	this.placeHolder = document.createElement('div');
+	this.placeHolder.setAttribute('class', 'placeholder');
+
+	this.media = document.createElement(tagType);
+	this.media.autoplay = true;
+	//this.media.controls = true; // placeholder
+	this.placeHolder.innerText = 
+	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
+
+	this.div.appendChild(this.placeHolder);
+	this.div.appendChild(this.media);
+	this.handleColor();
+    };
+
+    this.updateBoxIndex = function() {
+	this.div.setAttribute('id', idHash[this.connectedWith]);
+	this.div.setAttribute(
+	    'style', 
+	    'order: ' + 
+		((p = idHash[this.connectedWith] - peerIndex) > 0 ? p : p + idTable.length) +
+		';');
+	if(this.placeHolder)
+	    this.placeHolder.innerText = 
+	    idHash[this.connectedWith] + ': ' + nameHash[this.connectedWith];
+    };
+
+    this.handleColor = function() {
+	console.log('it works!');
+	//if (!this.placeHolder.style.backgroundColor) {
+	    this.placeHolder.style.backgroundColor =
+		peerColorScheme['wheel'][idHash[this.connectedWith] * 2];
+	//}
+    };
+
+    //////////////////////////
+    // peer connection operations
+    this.createPeerConnection = function() {
+	try {
+	    this.peerConn = new webkitRTCPeerConnection(null);
+	    this.peerConn.onicecandidate = this.handleIceCandidate;
+	    this.peerConn.onaddstream = this.handleRemoteStreamAdded;
+	    this.peerConn.onremoveStream = this.handleRemoteStreamRemoved;
+	    console.log('Created RTCPeerConnection Object');
+	} catch (e) {
+	    console.log('Failed to create PeerConnection Object');
+	    console.log('With exception: ' + e.message);
+	}
+	
+    };
+
+    this.handleRemoteStreamAdded = function(event) {
+	console.log('Remote stream added.');
+	self.createTag();
+	self.media.src = window.URL.createObjectURL(event.stream);
+	self.remoteStream = event.stream;
+    };
+
+    this.handleIceCandidate = function(event) {
+	console.log('handleIceCandidate event: ', event);
+	if (event.candidate) {
+	    sendMessageTo(self.connectedWith, {
+		type: 'candidate',
+		label: event.candidate.sdpMLineIndex,
+		id: event.candidate.sdpMid,
+		candidate: event.candidate.candidate});
+	} else {
+	    console.log('End of candidates.');
+	    this.connected = true;
+	}
+    };
+
+    this.handleCreateOfferError = function(event){
+	console.log('createOffer() error: ', e);
+    };
+    
+    this.doCall = function() {
+	console.log('Sending offer to peer:', this.connectedWith);
+	this.peerConn.createOffer(this.setLocalAndSendMessage, this.handleCreateOfferError);
+    };
+
+    this.doAnswer = function() {
+	console.log('Sending answer to peer:', this.connectedWith);
+	this.peerConn.createAnswer(this.setLocalAndSendMessage, null, sdpConstraints);
+    };
+
+    this.setLocalAndSendMessage = function(sessionDescription) {
+	// Set Opus as the preferred codec in SDP if Opus is present.
+	sessionDescription.sdp = preferOpus(sessionDescription.sdp);
+	self.peerConn.setLocalDescription(sessionDescription);
+	console.log('setLocalAndSendMessage sending message' , sessionDescription);
+	sendMessageTo(self.connectedWith, sessionDescription);
+    };
+
+    this.handleRemoteStreamRemoved = function(event) {
+	console.log('Remote stream removed. Event: ', event);
+    };
+
+    this.maybeStart = function() {
+	console.log('Calling maybeStart');
+	if (!this.isStarted && typeof localStream != 'undefined' && isChannelReady) {
+	    this.createPeerConnection();
+	    this.peerConn.addStream(localStream);
+	    this.isStarted = true;
+	    console.log(peerIndex, idHash[this.connectedWith]);
+	    if (peerIndex > idHash[this.connectedWith]) {
+		console.log('Prepare to call peer:', this.connectedWith);
+		this.doCall();
+	    }
+	}
+    };
+
+    //this function exec after recieving a 'bye' message
+    this.handleRemoteHangup = function() {
+	console.log('Session with',self.connectedWith,'terminated.');
+	self.peerConn.close();
+	//remove media tag
+	remoteMediaDiv.removeChild(self.div);
+    };
+
+    function preferOpus(sdp) {
+	var sdpLines = sdp.split('\r\n');
+	var mLineIndex;
+	// Search for m line.
+	for (var i = 0; i < sdpLines.length; i++) {
+	    if (sdpLines[i].search('m=audio') !== -1) {
+		mLineIndex = i;
+		break;
+	    }
+	}
+	if (mLineIndex === null) {
+	    return sdp;
+	}
+
+	// If Opus is available, set it as the default in m line.
+	for (i = 0; i < sdpLines.length; i++) {
+	    if (sdpLines[i].search('opus/48000') !== -1) {
+		var opusPayload = extractSdp(sdpLines[i], /:(\d+) opus\/48000/i);
+		if (opusPayload) {
+		    sdpLines[mLineIndex] = setDefaultCodec(sdpLines[mLineIndex], opusPayload);
+		}
+		break;
+	    }
+	}
+
+	// Remove CN in m line and sdp.
+	sdpLines = removeCN(sdpLines, mLineIndex);
+
+	sdp = sdpLines.join('\r\n');
+	return sdp;
     }
-  }
+
+    function extractSdp(sdpLine, pattern) {
+	var result = sdpLine.match(pattern);
+	return result && result.length === 2 ? result[1] : null;
+    }
+
+    function setDefaultCodec(mLine, payload) {
+	var elements = mLine.split(' ');
+	var newLine = [];
+	var index = 0;
+	for (var i = 0; i < elements.length; i++) {
+	    if (index === 3) { // Format of media starts from the fourth.
+		newLine[index++] = payload; // Put target payload to the first.
+	    }
+	    if (elements[i] !== payload) {
+		newLine[index++] = elements[i];
+	    }
+	}
+	return newLine.join(' ');
+    }
+
+    // Strip CN from sdp before CN constraints is ready.
+    function removeCN(sdpLines, mLineIndex) {
+	var mLineElements = sdpLines[mLineIndex].split(' ');
+	// Scan from end for the convenience of removing an item.
+	for (var i = sdpLines.length-1; i >= 0; i--) {
+	    var payload = extractSdp(sdpLines[i], /a=rtpmap:(\d+) CN\/\d+/i);
+	    if (payload) {
+		var cnPos = mLineElements.indexOf(payload);
+		if (cnPos !== -1) {
+		    // Remove CN payload from m line.
+		    mLineElements.splice(cnPos, 1);
+		}
+		// Remove CN line in sdp
+		sdpLines.splice(i, 1);
+	    }
+	}
+
+	sdpLines[mLineIndex] = mLineElements.join(' ');
+	return sdpLines;
+    }
 }
 
 window.onbeforeunload = function(e){
-    //////////////////////
-    // TODO: make hangup() usable for here
     sendMessage('bye');
-    /////////////////////
-}
-
-/////////////////////////////////////////////////////////
-
-function createPeerConnection() {
-  try {
-    pc = new webkitRTCPeerConnection(null);
-    pc.onicecandidate = handleIceCandidate;
-    pc.onaddstream = handleRemoteStreamAdded;
-    pc.onremovestream = handleRemoteStreamRemoved;
-    console.log('Created RTCPeerConnnection');
-  } catch (e) {
-    console.log('Failed to create PeerConnection, exception: ' + e.message);
-    alert('Cannot create RTCPeerConnection object.');
-      return;
-  }
-}
-
-function handleIceCandidate(event) {
-  console.log('handleIceCandidate event: ', event);
-  if (event.candidate) {
-    sendMessage({
-      type: 'candidate',
-      label: event.candidate.sdpMLineIndex,
-      id: event.candidate.sdpMid,
-      candidate: event.candidate.candidate});
-  } else {
-    console.log('End of candidates.');
-  }
-}
-
-function handleRemoteStreamAdded(event) {
-  console.log('Remote stream added.');
-  remoteAudio.src = window.URL.createObjectURL(event.stream);
-  remoteStream = event.stream;
-}
-
-function handleCreateOfferError(event){
-  console.log('createOffer() error: ', e);
-}
-
-function doCall() {
-  console.log('Sending offer to peer');
-  pc.createOffer(setLocalAndSendMessage, handleCreateOfferError);
-}
-
-function doAnswer() {
-  console.log('Sending answer to peer.');
-  pc.createAnswer(setLocalAndSendMessage, null, sdpConstraints);
-}
-
-function setLocalAndSendMessage(sessionDescription) {
-  // Set Opus as the preferred codec in SDP if Opus is present.
-  sessionDescription.sdp = preferOpus(sessionDescription.sdp);
-  pc.setLocalDescription(sessionDescription);
-  console.log('setLocalAndSendMessage sending message' , sessionDescription);
-  sendMessage(sessionDescription);
-}
-
-function requestTurn(turn_url) {
-  var turnExists = false;
-  for (var i in pc_config.iceServers) {
-    if (pc_config.iceServers[i].url.substr(0, 5) === 'turn:') {
-      turnExists = true;
-      turnReady = true;
-      break;
-    }
-  }
-  if (!turnExists) {
-    console.log('Getting TURN server from ', turn_url);
-    // No TURN server. Get one from computeengineondemand.appspot.com:
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function(){
-      if (xhr.readyState === 4 && xhr.status === 200) {
-        var turnServer = JSON.parse(xhr.responseText);
-      	console.log('Got TURN server: ', turnServer);
-        pc_config.iceServers.push({
-          'url': 'turn:' + turnServer.username + '@' + turnServer.turn,
-          'credential': turnServer.password
-        });
-        turnReady = true;
-      }
-    };
-    xhr.open('GET', turn_url, true);
-    xhr.send();
-  }
-}
-
-function handleRemoteStreamRemoved(event) {
-  console.log('Remote stream removed. Event: ', event);
-}
-
-function hangup() {
-  console.log('Hanging up.');
-  stop();
-  sendMessage('bye');
-}
-
-function handleRemoteHangup() {
-    //console.log('Session terminated.');
-    //stop();
-    //isInitiator = false;
-}
-
-function stop() {
-  isStarted = false;
-  // isAudioMuted = false;
-  // isVideoMuted = false;
-  pc.close();
-  pc = null;
-}
-
-///////////////////////////////////////////
-
-// Set Opus as the default audio codec if it's present.
-function preferOpus(sdp) {
-  var sdpLines = sdp.split('\r\n');
-  var mLineIndex;
-  // Search for m line.
-  for (var i = 0; i < sdpLines.length; i++) {
-      if (sdpLines[i].search('m=audio') !== -1) {
-        mLineIndex = i;
-        break;
-      }
-  }
-  if (mLineIndex === null) {
-    return sdp;
-  }
-
-  // If Opus is available, set it as the default in m line.
-  for (i = 0; i < sdpLines.length; i++) {
-    if (sdpLines[i].search('opus/48000') !== -1) {
-      var opusPayload = extractSdp(sdpLines[i], /:(\d+) opus\/48000/i);
-      if (opusPayload) {
-        sdpLines[mLineIndex] = setDefaultCodec(sdpLines[mLineIndex], opusPayload);
-      }
-      break;
-    }
-  }
-
-  // Remove CN in m line and sdp.
-  sdpLines = removeCN(sdpLines, mLineIndex);
-
-  sdp = sdpLines.join('\r\n');
-  return sdp;
-}
-
-function extractSdp(sdpLine, pattern) {
-  var result = sdpLine.match(pattern);
-  return result && result.length === 2 ? result[1] : null;
-}
-
-// Set the selected codec to the first in m line.
-function setDefaultCodec(mLine, payload) {
-  var elements = mLine.split(' ');
-  var newLine = [];
-  var index = 0;
-  for (var i = 0; i < elements.length; i++) {
-    if (index === 3) { // Format of media starts from the fourth.
-      newLine[index++] = payload; // Put target payload to the first.
-    }
-    if (elements[i] !== payload) {
-      newLine[index++] = elements[i];
-    }
-  }
-  return newLine.join(' ');
-}
-
-// Strip CN from sdp before CN constraints is ready.
-function removeCN(sdpLines, mLineIndex) {
-  var mLineElements = sdpLines[mLineIndex].split(' ');
-  // Scan from end for the convenience of removing an item.
-  for (var i = sdpLines.length-1; i >= 0; i--) {
-    var payload = extractSdp(sdpLines[i], /a=rtpmap:(\d+) CN\/\d+/i);
-    if (payload) {
-      var cnPos = mLineElements.indexOf(payload);
-      if (cnPos !== -1) {
-        // Remove CN payload from m line.
-        mLineElements.splice(cnPos, 1);
-      }
-      // Remove CN line in sdp
-      sdpLines.splice(i, 1);
-    }
-  }
-
-  sdpLines[mLineIndex] = mLineElements.join(' ');
-  return sdpLines;
-}
-
+};

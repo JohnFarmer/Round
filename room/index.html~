@@ -7,7 +7,7 @@
 
     <base target='_blank'>
 
-    <title>Chat room powered by WebRTC</title>
+    <title>EngCor powered by WebRTC</title>
 
     <link rel='stylesheet' href='css/style.css' />
 
@@ -16,30 +16,29 @@
   <body>
     <h3 id='roomname'>...</h3>
     <div id='container'>
-
-      <hr />
+      
       <div id='remoteMedia'>
       </div>
       <div id='boardDiv'>
-      <hr />
-      <br />    
-      <div id='board'></div>
-      <br />
-      <hr />
+	<br />    
+	<div id='board'></div>
+	<br />
       </div>
       <div id='local'>
-	<div id='localPlaceHolder' class='placeholder'>Me</div>
-	<br />
-	<audio id='localMedia' autoplay muted controls></audio>
-	<br />
-	<input id='inputbox' type='text' placeholder='type & send'>
-	<button id='sendbtn'>send</button>
+	<div class='box'>
+	  <div id='localPlaceHolder' class='placeholder'>Me</div>
+	  <audio id='localMedia' autoplay muted></audio>
+	  <br/>
+	  <input id='inputbox' type='text' placeholder='type & send'>
+	  <button id='sendbtn'>send</button>
+	</div>
       </div>
 
     </div>
 
     <script src='/socket.io/socket.io.js'></script>
-    <script src='js/peerconn.js'></script>
+    <script src='/js/mk_color_scheme.js'></script>
+    <script src='/js/main.js'></script>
 
   </body>
 </html>
