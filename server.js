@@ -6,9 +6,23 @@ var app = http.createServer(function (req, res) {
 }).listen(2013);
 
 var roomtable = {};
+var guesttable = {};
 var maxClients = 4;
 var io = require('socket.io').listen(app);
 io.sockets.on('connection', function (client){
+    client.on('onboard home page', function(name) {
+	console.log('client onboard home page!');
+	guesttable[name] = 'connected';
+	var roominfo = {};
+	for (var key in roomtable) {
+	    if (roomtable[key]) {
+		console.log(key);
+		roominfo[key] = roomtable[key].length - 1;
+	    }
+	}
+	client.emit('room info', roominfo);
+    });
+
     function log(){
 	var array = [">>> Message from server: "];
 	for (var i = 0; i < arguments.length; i++) {

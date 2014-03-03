@@ -29,6 +29,15 @@ body {
   margin:	    0 10px;
 }
 
+.list {
+  flex:             0 1 auto;
+  align-self:       auto;
+  min-width:        300px;
+  min-height:       50px;
+  text-align:       center;
+  margin:           0 10px
+}
+
 #boardDiv {
   width:	    100%;
 }
@@ -48,4 +57,8 @@ body {
   /*box-shadow:	    5px 5px 5px #888;*/
   margin:           5% 10%;
   line-height:      2;
+}
+
+#sendbtn,#roomnamebox {
+  font-size:        18px;
 }
