@@ -150,9 +150,11 @@ socket.on('message', function(from, message) {
 });
 
 var handleMessageFrom = function(from, message) {
+    var pc = peerConns[from];
     console.log('Client received message from (' + from + '):', message);
+ 
     try {
-	if (pc = peerConns[from]) { 
+	if (pc) { 
 	    if (message.type === 'answer') {
 		pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
 	    } else if (message.type === 'candidate') {
@@ -168,7 +170,6 @@ var handleMessageFrom = function(from, message) {
 	if (message.type === 'offer') {
 	    if (!peerConns[from])
 		peerConns[from] = new PeerConnection(from);
-	    var pc = peerConns[from];
 	    pc.maybeStart();
 	    pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
 	    pc.doAnswer();
@@ -179,8 +180,9 @@ var handleMessageFrom = function(from, message) {
 	////////////////////
 	// setTimeout(handleMessageFrom(from, message), 2000);
 	////////////////////
+	pc.messageCache.push(message);
+	console.log('MessageCache: got cache message');
     }
-    
 };
 
 socket.on('messageFrom', handleMessageFrom);
@@ -189,8 +191,25 @@ socket.on('messageFrom', handleMessageFrom);
 ///////////////////////////
 /// setting local stream
 
+function recover() {
+    console.log('starting to recover');
+    var pc;
+    for (var i = 1; i <= idTable[0]; i++) {
+	if (peerIndex === i) continue;
+	console.log(peerConns[idTable[i]].messageCache);
+	if (peerConns[idTable[i]].messageCache !== []) {
+	    pc = peerConns[idTable[i]];
+	    console.log('trying to recover: peer', i, idTable[i]);
+	    for (var j in pc.messageCache) {
+		handleMessageFrom(idTable[i], pc.messageCache[j]);
+	    }
+	}
+    }
+}
+
 function handleUserMedia(stream) {
     console.log('Adding local stream.');
+    setTimeout(recover, 30);
     localMedia.src = window.URL.createObjectURL(stream);
     localStream = stream;
     sendMessage('got user media');
@@ -215,7 +234,7 @@ console.log('Getting user media with constraints', constraints);
 /////////////////////////////////
 /// this is a peer agent deal with peer connection and media stream
 function PeerConnection(connectedPeer) {
-    console.log('Create PeerConnection Object');
+    console.log('Create PeerConnection Object with', connectedPeer);
     var self = this;
     this.peerConn;
     this.connectedPeerID;
@@ -225,6 +244,7 @@ function PeerConnection(connectedPeer) {
     this.media;
     this.placeHolder;
     this.connectedWith = connectedPeer;
+    this.messageCache = [];
 
     ////////////////////////////
     // create html media tag
@@ -341,6 +361,7 @@ function PeerConnection(connectedPeer) {
     this.maybeStart = function() {
 	console.log('Calling maybeStart');
 	if (!this.isStarted && typeof localStream != 'undefined' && isChannelReady) {
+	    console.log('ready to createPeerConnection');
 	    this.createPeerConnection();
 	    this.peerConn.addStream(localStream);
 	    this.isStarted = true;
@@ -349,6 +370,8 @@ function PeerConnection(connectedPeer) {
 		console.log('Prepare to call peer:', this.connectedWith);
 		this.doCall();
 	    }
+	} else {
+	    console.log('fail to createPeerConnection');
 	}
     };
 

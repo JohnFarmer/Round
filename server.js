@@ -7,9 +7,11 @@ var app = http.createServer(function (req, res) {
 
 var roomtable = {};
 var guesttable = {};
+var classroom = [];
 var maxClients = 4;
+var maxClassMember = 4;
 var io = require('socket.io').listen(app);
-io.sockets.on('connection', function (client){
+io.sockets.on('connection', function (client) {
     client.on('onboard home page', function(name) {
 	console.log('client onboard home page!');
 	guesttable[name] = 'connected';
@@ -21,6 +23,41 @@ io.sockets.on('connection', function (client){
 	    }
 	}
 	client.emit('room info', roominfo);
+    });
+    
+    function randtalk(student_list) {
+	var i;
+	function fisherYates(list) {
+	    var posi = list.length - 1, p;
+	    var temp;
+	    
+	    if (posi === 0 || list === undefined)
+		return []; //shoude throw an err
+	    for (;posi >= 0; posi -= 1) {
+		p = Math.floor(Math.random() * posi);
+		temp = list[posi];
+		list[posi] = list[p];
+		list[p] = temp;
+	    }
+	    return list;
+	}
+	student_list = fisherYates(student_list);
+	
+	for (i in student_list) {
+	    student_list[i].emit('goto room', 'chatgroup' + (i % 2 + 1));
+	}
+    }
+
+    client.on('onboard class room', function() {
+	classroom.push(client);
+	console.log(client.id, "joined classroom.");
+	for (var i in classroom) {
+	    classroom[i].emit('class room info', classroom.length);
+	}
+
+	if (classroom.length === maxClassMember) {
+	    randtalk(classroom);
+	}
     });
 
     function log(){
