@@ -3,13 +3,14 @@ var http = require('http');
 var file = new(static.Server)();
 var app = http.createServer(function (req, res) {
     file.serve(req, res);
-}).listen(2013);
+}).listen(80);
 
 var roomtable = {};
 var guesttable = {};
-var classroom = [];
+var classroom = {};
 var maxClients = 4;
-var maxClassMember = 4;
+var maxClassMember = 6;
+var stuPerRoom = 3;
 var io = require('socket.io').listen(app);
 io.sockets.on('connection', function (client) {
     client.on('onboard home page', function(name) {
@@ -44,19 +45,24 @@ io.sockets.on('connection', function (client) {
 	student_list = fisherYates(student_list);
 	
 	for (i in student_list) {
-	    student_list[i].emit('goto room', 'chatgroup' + (i % 2 + 1));
+	    student_list[i].emit('goto room', 'ChatGroup0' + (i % stuPerRoom + 1), maxClassMember);
 	}
     }
 
-    client.on('onboard class room', function() {
-	classroom.push(client);
+    client.on('onboard class room', function(room) {
+	room = 'foo';
+	if (!classroom[room]) 
+	    classroom[room] = [];
+	classroom[room].push(client);
 	console.log(client.id, "joined classroom.");
-	for (var i in classroom) {
-	    classroom[i].emit('class room info', classroom.length);
+	for (var i in classroom[room]) {
+	    classroom[room][i].emit('class room info', classroom[room].length, maxClassMember);
 	}
 
-	if (classroom.length === maxClassMember) {
-	    randtalk(classroom);
+	if (classroom[room].length === maxClassMember) {
+	    randtalk(classroom[room]);
+	    classroom[room] = undefined;
+	    console.log('class cleared', classroom[room]);
 	}
     });
 
