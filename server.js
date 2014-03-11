@@ -1,9 +1,28 @@
-var static = require('node-static');
-var http = require('http');
-var file = new(static.Server)();
-var app = http.createServer(function (req, res) {
-    file.serve(req, res);
-}).listen(80);
+var express = require('express');
+var app = express();
+
+app.set('view engine', 'jade');
+
+app.get('/', function(req, res) {
+    res.sendfile('index.html');
+});
+
+app.get(/^\/((?:js|css|img|public)\/.+)$/, function(req, res) {
+    console.log('static file request');
+    res.sendfile(req.params);
+});
+
+app.get(/^\/room\/(.+)$/, function(req, res) {
+    console.log('request to get in room', req.params);
+    res.render('room.jade', {roomname: req.params});
+});
+
+app.get(/^\/class$/, function(req, res) {
+    console.log('request to join random group chat');
+    res.render('class.jade');
+});
+
+var server = require('http').createServer(app).listen(80);
 
 var roomtable = {};
 var guesttable = {};
@@ -11,8 +30,8 @@ var classroom = {};
 var maxClients = 4;
 var maxClassMember = 6;
 var stuPerRoom = 3;
-var io = require('socket.io').listen(app);
-io.sockets.on('connection', function (client) {
+var io = require('socket.io').listen(server);
+io.sockets.on('connection', function(client) {
     client.on('onboard home page', function(name) {
 	console.log('client onboard home page!');
 	guesttable[name] = 'connected';

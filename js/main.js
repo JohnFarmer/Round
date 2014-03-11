@@ -29,7 +29,6 @@ var sdpConstraints = {'mandatory': {
     'OfferToReceiveAudio':true,
     'OfferToReceiveVideo':true }};
 
-var room = location.search.substring(1);
 if (room === '') {
     //room = prompt('Enter room name:');
     room = 'foo';

@@ -25,7 +25,7 @@ var handleRoomList = function() {
     for (var key in roomInfo) {
 	var listItem = document.createElement('p');
 	listItem.innerHTML = 
-	    '<a href="/room/\?' + key + '">' + key + '</a>   ' + (roomInfo >= 4? 'Full': roomInfo[key]);
+	    '<a href="/room/' + key + '">' + key + '</a>   ' + (roomInfo >= 4? 'Full': roomInfo[key]);
 	roomlist.appendChild(listItem);
 	console.log(key);
     }
@@ -40,5 +40,5 @@ sendBtn.onclick = function() {
 	return;
     }
     
-    window.location.replace('/room/?' + targetRoomName);
+    window.location.replace('/room/' + targetRoomName);
 };
