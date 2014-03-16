@@ -1,4 +1,5 @@
 #Files
 .DS_Store
 #Dirs
-experimental/
+archive/
+node_modules/
