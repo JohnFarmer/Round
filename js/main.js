@@ -48,7 +48,9 @@ peerColorScheme['init'] = '#ABCDEF';
 
 ////////////////////////////
 // setting connection to signaling server
-var socket = io.connect();
+var socket = io.connect(location.origin, 
+			{'sync disconnect on unload': true}
+		       );
 ///////
 // room config
 if (room !== '') {
@@ -110,7 +112,7 @@ smsSendBtn.onclick = function() {
 //////////////
 /// message sending & recieving
 function sendMessage(to, message) {
-    console.log('Client sending message to ' + idHash[to] + '(' + to + '): ', message);
+    console.log('Client sending message to ' + to + ': ', message);
     // if (typeof message === 'object') {
     // message = JSON.stringify(message);
     // }
@@ -142,9 +144,12 @@ socket.on('index', function (index, idtable) {
 });
 
 var handleMessage = function(from, message) {
+    if (from === peerId) return;
+    console.log('Recived message from:', from, 'msg:', message);
     if (message === 'got user media') {
-	if (!peerConns[from]) 	
-	    peerConns[from] = new PeerConnection(from);
+	if (!peerConns[from]) { 	
+	    console.log('new PC OBJ in posi I');
+	    peerConns[from] = new PeerConnection(from); }
 	peerConns[from].maybeStart();
 	return;
     } else if (message === 'bye') {
@@ -152,6 +157,7 @@ var handleMessage = function(from, message) {
 	delete peerConns[from];
 	return;
     }
+
     var pc = peerConns[from];
     console.log('Client received message from (' + from + '):', message);
  
@@ -170,8 +176,9 @@ var handleMessage = function(from, message) {
 	    }
 	} 
 	if (message.type === 'offer') {
-	    if (!peerConns[from])
-		peerConns[from] = new PeerConnection(from);
+	    if (!peerConns[from]) {
+		console.log('new PC OBJ in posi II');
+		peerConns[from] = new PeerConnection(from);}
 	    pc.maybeStart();
 	    pc.peerConn.setRemoteDescription(new RTCSessionDescription(message));
 	    pc.doAnswer();
@@ -214,10 +221,12 @@ function handleUserMedia(stream) {
     setTimeout(recover, 30);
     localMedia.src = window.URL.createObjectURL(stream);
     localStream = stream;
+    localMedia.muted = true;
     sendMessage('all', 'got user media');
     for (var i = 1; i < peerIndex; i++) {
-	if(!peerConns[idTable[i]])
- 	    peerConns[idTable[i]] = new PeerConnection(idTable[i]);
+	if(!peerConns[idTable[i]]) {
+	    console.log('new PC OBJ in posi III');
+ 	    peerConns[idTable[i]] = new PeerConnection(idTable[i]); }
 	peerConns[idTable[i]].maybeStart();
     }
 }

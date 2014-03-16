@@ -16,7 +16,7 @@ module.exports = (server) ->
             guestT[name] = 'connected'
             roominfo = {}
             for rm of roomT
-                roominfo[rm] = count[rm] - 1
+                roominfo[rm] = count[rm]
             client.emit 'room info', roominfo
 
         client.on 'onboard class rm', (rm) ->
@@ -29,7 +29,7 @@ module.exports = (server) ->
             if classT[rm].length == maxClassMember
                 randtalk classT[rm]
                 classT[rm] = undefined
-                console.log "class #{classT[rm]} cleared"
+                console.log "class #{classT[rm]} jumped into talk page"
                 
         log = () ->
             array = [">>> Message From Server: "]
@@ -43,14 +43,15 @@ module.exports = (server) ->
             for cli in roomT[rm]
                 idtable.push cli.id
             for i,cli of roomT[rm]
-                index = parseInt(i, 10) + 1 # here i is a string
+                # attention here i is a string
+                index = parseInt(i, 10) + 1 
                 console.log 'INDEXING:', index, idtable
                 cli.emit 'index', index, idtable
 
-        client.on 'broadcast', (type, message) ->
+        client.on 'broadmsg', (type, message) ->
             console.log 'Transporting Board Message:', message
             for cli in roomT[rm]
-                cli.emit 'broadcast', client.id, type, message
+                cli.emit 'broadmsg', client.id, type, message
 
         client.on 'message', (to, message) ->
             rm = client.room
@@ -58,7 +59,7 @@ module.exports = (server) ->
             console.log '           to:', to
             console.log '          msg:', message
             for i in [0...count[rm]]
-                continue if to != 'all' and roomT[rm][i].id != to
+                continue if to != 'all' and roomT[rm][i].id == client.id
                 roomT[rm][i].emit 'message', client.id, message
 
         client.on 'create or join', (rm, conf) ->
@@ -89,15 +90,20 @@ module.exports = (server) ->
             count[rm] += 1
             updateIndex rm
         
-        client.on 'bye', (id) ->
+        client.on 'disconnect', () ->
+            console.log client.id, 'DISCONNECTED' # debug
             rm = client.room
             return if !roomT[rm]
             i = roomT[rm].indexOf(client)
+            console.log i
+            console.log roomT[rm]
             roomT[rm].splice i,1
-            if roomT[rm].length >= 2
+            count[rm] -= 1
+            if count[rm] >= 1
                 updateIndex rm
             else
                 roomT[rm] = undefined
+                count[rm] = undefined
                 console.log rm, 'cleared'
                 return
             for cli in roomT[rm]
