@@ -1,3 +1,11 @@
+/*var $ = (function() {
+    var d = document;
+    return {
+	doc : d,
+	id : d.getElementById.bind(d),
+	crt : d.createElement.bind(d)
+    };
+})();*/
 // a local connect info module
 var peerConns = {};
 var peerIndex;
@@ -23,12 +31,13 @@ var smsSendBtn = document.getElementById('sendbtn');
 
 // a constrain module
 var constraints = {video: false, audio: true};
-var pc_config = {'iceServers': [{'url': 'stun:stun.l.google.com:19302'}]};
+var pc_config = {'iceServers': [{'url': 'stun:10.205.12.113:3478'}]};
 var pc_constraints = {'optional': [{'DtlsSrtpKeyAgreement': true}]};
 var sdpConstraints = {'mandatory': {
     'OfferToReceiveAudio':true,
     'OfferToReceiveVideo':true }};
 
+var room = room;
 if (room === '') {
     //room = prompt('Enter room name:');
     room = 'foo';
@@ -44,7 +53,9 @@ var socket = io.connect();
 // room config
 if (room !== '') {
     console.log('Create or join room', room);
-    socket.emit('create or join', room, peerName, peerColorScheme['init']);
+    var config = { name: peerName,
+		   initColor: peerColorScheme['init'] };
+    socket.emit('create or join', room, config);
 }
 
 socket.on('created', function(room) {
@@ -80,7 +91,7 @@ socket.on('log', function(array) {
     console.log.apply(console, array);
 });
 
-socket.on('broadcast', function(from, type, message) {
+socket.on('boardmsg', function(from, type, message) {
     console.log('Receving board message:', message);
     if (type === 'sms') {
 	var historyMsg = board.innerText;
@@ -93,22 +104,17 @@ socket.on('broadcast', function(from, type, message) {
 smsSendBtn.onclick = function() {
     var sms = inputBox.value;
     console.log('Sending board messgae:', sms);
-    socket.emit('broadcast', 'sms', sms);
+    socket.emit('boardmsg', 'sms', sms);
     inputBox.value = '';
 };
 //////////////
 /// message sending & recieving
-function sendMessage(message) {
-    console.log('Client sending broadcast message: ', message);
-    // if (typeof message === 'object') {
-    //   message = JSON.stringify(message);
-    // }
-    socket.emit('message', message);
-}
-
-function sendMessageTo(to, message) {
+function sendMessage(to, message) {
     console.log('Client sending message to ' + idHash[to] + '(' + to + '): ', message);
-    socket.emit('messageTo', to, message);
+    // if (typeof message === 'object') {
+    // message = JSON.stringify(message);
+    // }
+    socket.emit('message', to, message);
 }
 
 socket.on('index', function (index, idtable) {
@@ -135,20 +141,17 @@ socket.on('index', function (index, idtable) {
     handleLocalColor();
 });
 
-socket.on('message', function(from, message) {
-    if(from === peerId) return;
-    console.log('Client received message from (' + from + '):', message);
+var handleMessage = function(from, message) {
     if (message === 'got user media') {
 	if (!peerConns[from]) 	
 	    peerConns[from] = new PeerConnection(from);
 	peerConns[from].maybeStart();
+	return;
     } else if (message === 'bye') {
 	peerConns[from].handleRemoteHangup();
 	delete peerConns[from];
+	return;
     }
-});
-
-var handleMessageFrom = function(from, message) {
     var pc = peerConns[from];
     console.log('Client received message from (' + from + '):', message);
  
@@ -184,14 +187,14 @@ var handleMessageFrom = function(from, message) {
     }
 };
 
-socket.on('messageFrom', handleMessageFrom);
+socket.on('message', handleMessage);
 
 
 ///////////////////////////
 /// setting local stream
 
 function recover() {
-    console.log('starting to recover');
+    // console.log('starting to recover');
     var pc;
     for (var i = 1; i <= idTable[0]; i++) {
 	if (peerIndex === i) continue;
@@ -211,7 +214,7 @@ function handleUserMedia(stream) {
     setTimeout(recover, 30);
     localMedia.src = window.URL.createObjectURL(stream);
     localStream = stream;
-    sendMessage('got user media');
+    sendMessage('all', 'got user media');
     for (var i = 1; i < peerIndex; i++) {
 	if(!peerConns[idTable[i]])
  	    peerConns[idTable[i]] = new PeerConnection(idTable[i]);
@@ -298,7 +301,7 @@ function PeerConnection(connectedPeer) {
     // peer connection operations
     this.createPeerConnection = function() {
 	try {
-	    this.peerConn = new webkitRTCPeerConnection(null);
+	    this.peerConn = new webkitRTCPeerConnection(pc_config);
 	    this.peerConn.onicecandidate = this.handleIceCandidate;
 	    this.peerConn.onaddstream = this.handleRemoteStreamAdded;
 	    this.peerConn.onremoveStream = this.handleRemoteStreamRemoved;
@@ -320,7 +323,7 @@ function PeerConnection(connectedPeer) {
     this.handleIceCandidate = function(event) {
 	console.log('handleIceCandidate event: ', event);
 	if (event.candidate) {
-	    sendMessageTo(self.connectedWith, {
+	    sendMessage(self.connectedWith, {
 		type: 'candidate',
 		label: event.candidate.sdpMLineIndex,
 		id: event.candidate.sdpMid,
@@ -350,7 +353,7 @@ function PeerConnection(connectedPeer) {
 	sessionDescription.sdp = preferOpus(sessionDescription.sdp);
 	self.peerConn.setLocalDescription(sessionDescription);
 	console.log('setLocalAndSendMessage sending message' , sessionDescription);
-	sendMessageTo(self.connectedWith, sessionDescription);
+	sendMessage(self.connectedWith, sessionDescription);
     };
 
     this.handleRemoteStreamRemoved = function(event) {
@@ -457,5 +460,5 @@ function PeerConnection(connectedPeer) {
 }
 
 window.onbeforeunload = function(e){
-    sendMessage('bye');
+    socket.emit('bye', peerId);
 };

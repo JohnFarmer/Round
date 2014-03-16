@@ -1,53 +1,35 @@
 module.exports = (server) ->
-    roomtable = {}
-    guesttable = {}
-    classroom = {}
     maxClients = 4
     maxClassMember = 6
     stuPerRoom = 3
+
+    roomT = {}
+    count = {}
+    color = {}
+    guestT = {}
+    classT = {}
 
     io = require('socket.io').listen server
     io.sockets.on 'connection', (client) ->
         client.on 'onboard home page', (name) ->
             console.log 'client onboard home page!'
-            guesttable[name] = 'connected'
+            guestT[name] = 'connected'
             roominfo = {}
-            for key, value of roomtable
-                roominfo[key] = roomtable[key].length - 1
+            for rm of roomT
+                roominfo[rm] = count[rm] - 1
             client.emit 'room info', roominfo
 
-        randtalk = (student_list) ->
-            console.log "DEBUG MSG"
-            console.log student_list
-
-            fisherYates = (list) ->
-                posi = list.length - 1
-                if posi == 0 or list == undefined
-                    return []
-                while posi >= 0
-                    p = Math.floor(Math.random() * posi)
-                    [list[posi], list[p]] = [list[p], list[posi]]
-                    posi -= 1
-                list
-            student_list = fisherYates student_list
-            console.log student_list
-
-            for i in [0...student_list.length]
-                student_list[i].emit 'goto room', "ChatGroup0#{i % stuPerRoom + 1}", maxClassMember
-                console.log "DEBUG MSG:::", i
-
-
-        client.on 'onboard class room', (room) ->
-            room = 'foo'
-            classroom[room] ||= []
-            classroom[room].push client
-            console.log client.id, "joined classroom: #{room}"
-            for i in classroom[room]
-                i.emit 'class room info', classroom[room].length, maxClassMember
-            if classroom[room].length == maxClassMember
-                randtalk classroom[room]
-                classroom[room] = undefined
-                console.log "class #{classroom[room]} cleared"
+        client.on 'onboard class rm', (rm) ->
+            rm = 'foo'
+            classT[rm] ||= []
+            classT[rm].push client
+            console.log client.id, "joined classrm: #{rm}"
+            for cli in classT[rm]
+                cli.emit 'class rm info', classT[rm].length, maxClassMember
+            if classT[rm].length == maxClassMember
+                randtalk classT[rm]
+                classT[rm] = undefined
+                console.log "class #{classT[rm]} cleared"
                 
         log = () ->
             array = [">>> Message From Server: "]
@@ -55,72 +37,85 @@ module.exports = (server) ->
                 array.push arguments[i]
             client.emit 'log', array
 
-        updateIndex = () ->
+        updateIndex = (rm) ->
             idtable = []
-            idtable.push roomtable[client.room].length - 1
-            for i in [1...roomtable[client.room].length]
-                idtable.push roomtable[client.room][i].id
-            for i in [1...roomtable[client.room].length]
-                console.log 'INDEXING:', i, idtable
-                roomtable[client.room][i].emit 'index', i, idtable
+            idtable.push count[rm]
+            for cli in roomT[rm]
+                idtable.push cli.id
+            for i,cli of roomT[rm]
+                index = parseInt(i, 10) + 1 # here i is a string
+                console.log 'INDEXING:', index, idtable
+                cli.emit 'index', index, idtable
 
         client.on 'broadcast', (type, message) ->
             console.log 'Transporting Board Message:', message
-            for i in [1...roomtable[client.room].length]
-                roomtable[client.room][i].emit 'broadcast', client.id, type, message
+            for cli in roomT[rm]
+                cli.emit 'broadcast', client.id, type, message
 
-        client.on 'message', (message) ->
-            console.log 'Send Message, from:', client.id
-            console.log '                to:', 'ALL'
-            console.log '               msg:', message
-            if message == 'bye'
-                return if !roomtable[client.room]
-                i = roomtable[client.room].indexOf(client)
-                roomtable[client.room].splice i,1
-                if roomtable[client.room].length >= 2
-                    updateIndex()
-                else
-                    roomtable[client.room] = undefined
-                    console.log client.room, 'cleared'
-                    return
-            for i in [1...roomtable[client.room].length]
-                roomtable[client.room][i].emit 'message', client.id, message
+        client.on 'message', (to, message) ->
+            rm = client.room
+            console.log 'Message, from:', client.id
+            console.log '           to:', to
+            console.log '          msg:', message
+            for i in [0...count[rm]]
+                continue if to != 'all' and roomT[rm][i].id != to
+                roomT[rm][i].emit 'message', client.id, message
 
-        client.on 'messageTo', (to, message) ->
-            console.log 'Send Message, from:', client.id
-            console.log '                to:', to
-            console.log '               msg:', message
-            for i in [1...roomtable[client.room].length]
-                continue if roomtable[client.room][i].id != to
-                roomtable[client.room][i].emit 'messageFrom', client.id, message
-
-        client.on 'create or join', (room, name, initColor) ->
-            if roomtable[room] == undefined
-                numClients = 0
-                roomtable[room] = []
-                roomtable[room][0] = maxClients
-            else
-                numClients = roomtable[room].length - 1
-            roomtable[room].push client
+        client.on 'create or join', (rm, conf) ->
+            if roomT[rm] == undefined
+                roomT[rm] = []
+                count[rm] = 0
+            roomT[rm].push client
             
-            client['room'] = room
-            client['name'] = name
-            updateIndex()
+            client['room'] = rm
+            client['name'] = conf.name
 
-            log "Room #{room} has #{numClients} client(s)"
-            log 'Request to create or join room', room
+            log "Room #{rm} has #{count[rm]} client(s)"
+            log 'Request to create or join room', rm
 
-            if numClients == 0
-                client.join room
-                roomtable[room].initColor = initColor
-                client.emit 'created', room
-            else if numClients <= roomtable[room][0] - 1
+            if count[rm] == 0
+                client.join rm
+                color[rm] = conf.initColor
+                client.emit 'created', rm
+            else if count[rm] <= maxClients
                 namehash = {}
-                for i in [1..numClients]
-                    roomtable[room][i].emit 'join', client.id, client.name
-                    namehash[roomtable[room][i].id] = roomtable[room][i].name
-                client.join room
-                client.emit 'joined', room, namehash, roomtable[room].initColor
+                for cli in roomT[rm]
+                    cli.emit 'join', client.id, client.name
+                    namehash[cli.id] = cli.name
+                client.join rm
+                client.emit 'joined', rm, namehash, color[rm]
             else
-                client.emit 'full', room
-                
+                client.emit 'full', rm
+            count[rm] += 1
+            updateIndex rm
+        
+        client.on 'bye', (id) ->
+            rm = client.room
+            return if !roomT[rm]
+            i = roomT[rm].indexOf(client)
+            roomT[rm].splice i,1
+            if roomT[rm].length >= 2
+                updateIndex rm
+            else
+                roomT[rm] = undefined
+                console.log rm, 'cleared'
+                return
+            for cli in roomT[rm]
+                cli.emit 'message', client.id, 'bye'
+            
+    # broadcast = () ->
+    
+    randtalk = (student_list) ->
+        fisherYates = (list) ->
+            posi = list.length - 1
+            if posi == 0 or list == undefined
+                return []
+            while posi >= 0
+                p = Math.floor(Math.random() * posi)
+                [list[posi], list[p]] = [list[p], list[posi]]
+                posi -= 1
+            list
+        student_list = fisherYates student_list
+
+        for i in [0...student_list.length]
+            student_list[i].emit 'goto room', "ChatGroup0#{i % stuPerRoom + 1}", maxClassMember
