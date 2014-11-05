@@ -30,7 +30,7 @@ var inputBox = document.getElementById('inputbox');
 var smsSendBtn = document.getElementById('sendbtn');
 
 // a constrain module
-var constraints = {video: false, audio: true};
+var constrains = {video: false, audio: true};
 var pc_config = {'iceServers': [{'url': 'stun:10.205.12.113:3478'}]};
 var pc_constraints = {'optional': [{'DtlsSrtpKeyAgreement': true}]};
 var sdpConstraints = {'mandatory': {
@@ -239,9 +239,9 @@ function handleUserMediaError(error){
 }
 
 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-navigator.getUserMedia(constraints, handleUserMedia, handleUserMediaError);
+navigator.getUserMedia(constrains, handleUserMedia, handleUserMediaError);
 
-console.log('Getting user media with constraints', constraints);
+console.log('Getting user media with constrains', constrains);
 
 // TODO: set TURN server
 
@@ -264,9 +264,9 @@ function PeerConnection(connectedPeer) {
 	// create html media tag
 	this.createTag = function () {
 		var tagType;
-		if (constraints.video) {
+		if (constrains.video) {
 			tagType = 'video';
-		} else if (constraints.audio) {
+		} else if (constrains.audio) {
 			tagType = 'audio';
 		} else { /*  */	}
 
@@ -448,7 +448,7 @@ function PeerConnection(connectedPeer) {
 		return newLine.join(' ');
 	}
 
-	// Strip CN from sdp before CN constraints is ready.
+	// Strip CN from sdp before CN constrains is ready.
 	function removeCN(sdpLines, mLineIndex) {
 		var mLineElements = sdpLines[mLineIndex].split(' ');
 		// Scan from end for the convenience of removing an item.

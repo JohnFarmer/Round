@@ -1,6 +1,0 @@
-var colorScheme = {};
-
-colorScheme['init'] = "#ABCDEF";
-colorScheme['wheel'] = mkColorScheme(colorScheme['init']);
-
-handlePageColor();
