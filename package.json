@@ -1,0 +1,11 @@
+{
+	"name": "Round",
+	"description": "A Talk Room Web App",
+	"version": "0.1",
+	"dependencies": {
+		"socket.io": "*",
+		"express": "*",
+		"jade": "*",
+		"coffee": "*"
+	}
+}
