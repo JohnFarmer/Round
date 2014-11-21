@@ -30,7 +30,7 @@ module.exports = (server) ->
                 randtalk classT[rm]
                 classT[rm] = undefined
                 console.log "class #{classT[rm]} jumped into talk page"
-                
+
         log = () ->
             array = [">>> Message From Server: "]
             for i in [0...arguments.length]
@@ -44,14 +44,19 @@ module.exports = (server) ->
                 idtable.push cli.id
             for i,cli of roomT[rm]
                 # attention here i is a string
-                index = parseInt(i, 10) + 1 
+                index = parseInt(i, 10) + 1
                 console.log 'INDEXING:', index, idtable
                 cli.emit 'index', index, idtable
 
-        client.on 'broadmsg', (type, message) ->
+        client.on 'boardmsg', (type, message) ->
+            rm = client.room
             console.log 'Transporting Board Message:', message
             for cli in roomT[rm]
-                cli.emit 'broadmsg', client.id, type, message
+                console.log 'Sending Board Message to #{cli}'
+                cli.emit 'boardmsg', client.id, type, message
+
+        client.on 'test-socket', () ->
+            console.log 'test-socket message recieved'
 
         client.on 'message', (to, message) ->
             rm = client.room
@@ -67,7 +72,7 @@ module.exports = (server) ->
                 roomT[rm] = []
                 count[rm] = 0
             roomT[rm].push client
-            
+
             client['room'] = rm
             client['name'] = conf.name
 
@@ -89,7 +94,7 @@ module.exports = (server) ->
                 client.emit 'full', rm
             count[rm] += 1
             updateIndex rm
-        
+
         client.on 'disconnect', () ->
             console.log client.id, 'DISCONNECTED' # debug
             rm = client.room
@@ -108,9 +113,9 @@ module.exports = (server) ->
                 return
             for cli in roomT[rm]
                 cli.emit 'message', client.id, 'bye'
-            
+
     # broadcast = () ->
-    
+
     randtalk = (student_list) ->
         fisherYates = (list) ->
             posi = list.length - 1
