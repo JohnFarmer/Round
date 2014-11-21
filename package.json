@@ -10,13 +10,13 @@
 	  "socket.io": "*",
       "express": "*",
       "jade": "*",
-      "coffee-script": "*",
+      "coffee-script": "*"
   },
   "devDependencies": {
 	  "socket.io": "*",
       "express": "*",
       "jade": "*",
-      "coffee-script": "*",
+      "coffee-script": "*"
   },
   "scripts": {
     "test": "sudo coffee server.coffee",
