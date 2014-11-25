@@ -19,8 +19,7 @@
       "coffee-script": "*"
   },
   "scripts": {
-    "test": "sudo coffee server.coffee",
-    "start": "sudo node server.js"
+    "test": "coffee server.coffee",
   },
   "repository": {
     "type": "git",

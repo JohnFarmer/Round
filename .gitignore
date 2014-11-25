@@ -1,7 +1,7 @@
 #Files
 \#*
 *~
-.log
+*.log
 #Dirs
 archive/
 node_modules/
