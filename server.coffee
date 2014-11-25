@@ -18,6 +18,6 @@ app.get /^\/room\/([A-Za-z0-9]+)$/, (req, res) ->
 app.get /^\/class$/, (req, res) ->
     res.render 'class.jade'
 
-server = require('http').createServer(app).listen 80
+server = require('http').createServer(app).listen 8080
 
 count = require("#{__dirname}/bin/socket_server.coffee") server
