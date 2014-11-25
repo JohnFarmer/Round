@@ -19,7 +19,7 @@
       "coffee-script": "*"
   },
   "scripts": {
-    "test": "coffee server.coffee",
+    "test": "coffee server.coffee"
   },
   "repository": {
     "type": "git",
