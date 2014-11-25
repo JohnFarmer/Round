@@ -3,14 +3,21 @@ module.exports = (server) ->
     maxClassMember = 6
     stuPerRoom = 3
 
+    #### Hashes to record App's state
+    # record room info
     roomT = {}
+    # record clients per room
     count = {}
+    # record base color of rooms
     color = {}
+    # to record guest on homepage
     guestT = {}
+    # to preserve a imagined class room
     classT = {}
 
     io = require('socket.io').listen server
     io.sockets.on 'connection', (client) ->
+        # Handler offering Room list on server to the index page
         client.on 'onboard home page', (name) ->
             console.log 'client onboard home page!'
             guestT[name] = 'connected'
@@ -19,6 +26,7 @@ module.exports = (server) ->
                 roominfo[rm] = count[rm]
             client.emit 'room info', roominfo
 
+        # Handler for the class room feature
         client.on 'onboard class rm', (rm) ->
             rm = 'foo'
             classT[rm] ||= []
@@ -51,6 +59,7 @@ module.exports = (server) ->
         client.on 'boardmsg', (type, message) ->
             rm = client.room
             console.log 'Transporting Board Message:', message
+            console.log '                      from:', client
             for cli in roomT[rm]
                 console.log 'Sending Board Message to #{cli}'
                 cli.emit 'boardmsg', client.id, type, message
