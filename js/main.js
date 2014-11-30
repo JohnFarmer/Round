@@ -238,7 +238,7 @@ function handleUserMediaError(error){
 	console.log('navigator.getUserMedia error: ', error);
 }
 
-navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+//navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 navigator.getUserMedia(constrains, handleUserMedia, handleUserMediaError);
 
 console.log('Getting user media with constrains', constrains);
@@ -310,7 +310,8 @@ function PeerConnection(connectedPeer) {
 	// peer connection operations
 	this.createPeerConnection = function() {
 		try {
-			this.peerConn = new webkitRTCPeerConnection(pc_config);
+			//this.peerConn = new webkitRTCPeerConnection(pc_config);
+			this.peerConn = new RTCPeerConnection(pc_config);
 			this.peerConn.onicecandidate = this.handleIceCandidate;
 			this.peerConn.onaddstream = this.handleRemoteStreamAdded;
 			this.peerConn.onremoveStream = this.handleRemoteStreamRemoved;
