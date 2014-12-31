@@ -58,8 +58,9 @@ module.exports = (server) ->
 
         client.on 'boardmsg', (type, message) ->
             rm = client.room
-            console.log 'Transporting Board Message:', message
-            console.log '                      from:', client
+            console.log '----------BOARD-MSG--------------'
+            console.log 'Transporting Board from:', client
+            console.log '                message:', message
             for cli in roomT[rm]
                 console.log 'Sending Board Message to #{cli}'
                 cli.emit 'boardmsg', client.id, type, message
@@ -69,6 +70,7 @@ module.exports = (server) ->
 
         client.on 'message', (to, message) ->
             rm = client.room
+            console.log '--------------MSG-----------------'
             console.log 'Message, from:', client.id
             console.log '           to:', to
             console.log '          msg:', message
@@ -85,7 +87,11 @@ module.exports = (server) ->
             client['room'] = rm
             client['name'] = conf.name
 
-            log "Room #{rm} has #{count[rm]} client(s)"
+            console.log "---------------CREATE-OR-JOIN----------------"
+            console.log "Room #{rm} already has #{count[rm]} client(s)"
+            console.log 'Request to create or join room', rm
+
+            log "Room #{rm} already has #{count[rm]} client(s)"
             log 'Request to create or join room', rm
 
             if count[rm] == 0
@@ -109,8 +115,9 @@ module.exports = (server) ->
             rm = client.room
             return if !roomT[rm]
             i = roomT[rm].indexOf(client)
-            console.log i
-            console.log roomT[rm]
+            #console.log i
+            #console.log roomT[rm]
+            console.log i, 'client(s) in room:', rm
             roomT[rm].splice i,1
             count[rm] -= 1
             if count[rm] >= 1

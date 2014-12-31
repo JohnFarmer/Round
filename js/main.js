@@ -30,7 +30,7 @@ var inputBox = document.getElementById('inputbox');
 var smsSendBtn = document.getElementById('sendbtn');
 
 // a constrain module
-var constrains = {video: false, audio: true};
+var constrains = {video: true, audio: true};
 var pc_config = {'iceServers': [{'url': 'stun:10.205.12.113:3478'}]};
 var pc_constraints = {'optional': [{'DtlsSrtpKeyAgreement': true}]};
 var sdpConstraints = {'mandatory': {
@@ -109,6 +109,8 @@ smsSendBtn.onclick = function() {
 	socket.emit('boardmsg', 'sms', sms);
 	inputBox.value = '';
 };
+
+console.log('WebSocket basic init done');
 //////////////
 /// message sending & recieving
 function sendMessage(to, message) {
@@ -199,6 +201,7 @@ var handleMessage = function(from, message) {
 
 socket.on('message', handleMessage);
 
+console.log('WebSocket message init done');
 
 ///////////////////////////
 /// setting local stream
@@ -237,6 +240,8 @@ function handleUserMedia(stream) {
 function handleUserMediaError(error){
 	console.log('navigator.getUserMedia error: ', error);
 }
+
+console.log('getUserMedia callbacks define done');
 
 //navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 navigator.getUserMedia(constrains, handleUserMedia, handleUserMediaError);
@@ -473,4 +478,5 @@ function PeerConnection(connectedPeer) {
 
 window.onbeforeunload = function(e){
 	socket.emit('bye', peerId);
+	socket.close();
 };
