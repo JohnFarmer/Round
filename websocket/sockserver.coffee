@@ -1,9 +1,13 @@
 module.exports = (server) ->
+    log4js = require('log4js')
+    # TODO: add seperate logger for each room
+    logger = log4js.getLogger()
+
     maxClients = 4
     maxClassMember = 6
     stuPerRoom = 3
 
-    #### Hashes to record App's state
+    # Hashes to record App's internal state
     # record room info
     roomT = {}
     # record clients per room
@@ -19,7 +23,7 @@ module.exports = (server) ->
     io.sockets.on 'connection', (client) ->
         # Handler offering Room list on server to the index page
         client.on 'onboard home page', (name) ->
-            console.log 'client onboard home page!'
+            logger.info 'client onboard home page!'
             guestT[name] = 'connected'
             roominfo = {}
             for rm of roomT
@@ -31,13 +35,13 @@ module.exports = (server) ->
             rm = 'foo'
             classT[rm] ||= []
             classT[rm].push client
-            console.log client.id, "joined classrm: #{rm}"
+            logger.info client.id, "joined classrm: #{rm}"
             for cli in classT[rm]
                 cli.emit 'class rm info', classT[rm].length, maxClassMember
             if classT[rm].length == maxClassMember
                 randtalk classT[rm]
                 classT[rm] = undefined
-                console.log "class #{classT[rm]} jumped into talk page"
+                logger.info "class #{classT[rm]} jumped into talk page"
 
         log = () ->
             array = [">>> Message From Server: "]
@@ -53,25 +57,25 @@ module.exports = (server) ->
             for i,cli of roomT[rm]
                 # attention here i is a string
                 index = parseInt(i, 10) + 1
-                console.log 'INDEXING:', index, idtable
+                logger.info 'INDEXING:', index, idtable
                 cli.emit 'index', index, idtable
 
         client.on 'boardmsg', (type, message) ->
             rm = client.room
-            console.log 'Transporting Board Message:', message
-            console.log '                      from:', client
+            logger.info 'Transporting Board Message:', message
+            logger.info '                      from:', client
             for cli in roomT[rm]
-                console.log 'Sending Board Message to #{cli}'
+                logger.info 'Sending Board Message to #{cli}'
                 cli.emit 'boardmsg', client.id, type, message
 
         client.on 'test-socket', () ->
-            console.log 'test-socket message recieved'
+            logger.info 'test-socket message recieved'
 
         client.on 'message', (to, message) ->
             rm = client.room
-            console.log 'Message, from:', client.id
-            console.log '           to:', to
-            console.log '          msg:', message
+            logger.info 'Message, from:', client.id
+            logger.info '           to:', to
+            logger.info '          msg:', message
             for i in [0...count[rm]]
                 continue if to != 'all' and roomT[rm][i].id == client.id
                 roomT[rm][i].emit 'message', client.id, message
@@ -105,12 +109,12 @@ module.exports = (server) ->
             updateIndex rm
 
         client.on 'disconnect', () ->
-            console.log client.id, 'DISCONNECTED' # debug
+            logger.info client.id, 'DISCONNECTED' # debug
             rm = client.room
             return if !roomT[rm]
             i = roomT[rm].indexOf(client)
-            console.log i
-            console.log roomT[rm]
+            logger.info i
+            logger.info roomT[rm]
             roomT[rm].splice i,1
             count[rm] -= 1
             if count[rm] >= 1
@@ -118,7 +122,7 @@ module.exports = (server) ->
             else
                 roomT[rm] = undefined
                 count[rm] = undefined
-                console.log rm, 'cleared'
+                logger.info rm, 'cleared'
                 return
             for cli in roomT[rm]
                 cli.emit 'message', client.id, 'bye'
