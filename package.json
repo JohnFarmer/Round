@@ -3,23 +3,15 @@
   "version": "0.0.1",
   "description": "A WebRTC Based Talk Room App",
   "main": "server.coffee",
-  "bin": {
-    "Round": "socket_server.js"
-  },
   "dependencies": {
-	  "socket.io": "*",
-      "express": "*",
-      "jade": "*",
-      "coffee-script": "*"
-  },
-  "devDependencies": {
-	  "socket.io": "*",
+      "log4js": "*",
+      "socket.io": "*",
       "express": "*",
       "jade": "*",
       "coffee-script": "*"
   },
   "scripts": {
-    "test": "coffee server.coffee"
+    "start": "coffee app.coffee"
   },
   "repository": {
     "type": "git",
@@ -29,7 +21,7 @@
     "webrtc",
     "talkroom"
   ],
-  "author": "FangZhou",
+  "author": "akafangzhou@gmail.com",
   "license": "GPL",
   "bugs": {
     "url": "https://github.com/JohnFarmer/Round/issues"

@@ -1,3 +1,4 @@
+# shuffle algorithm
 fisherYates = (list) ->
     console.log list
     posi = list.length - 1
